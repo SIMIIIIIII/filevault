@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::Write;
 
-pub fn open_file_read(filename: &str) -> std::io::Result<fs::File> {
+pub fn open_file_read(filename: String) -> std::io::Result<fs::File> {
     fs::OpenOptions::new().read(true).open(filename)
 }
 
