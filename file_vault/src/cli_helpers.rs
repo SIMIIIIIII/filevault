@@ -1,13 +1,9 @@
 use std::{
-    fs,
-    io::{self, Write},
-    path::PathBuf,
-    thread,
-    time::Duration,
+    fs, io::{self, Write}, path::{Path, PathBuf}, thread, time::Duration,
 };
 
 use crate::{
-    customer::Custormer,
+    customer::Customer,
     files_vault_errors::FileVaultError,
     server::Server
 };
@@ -64,12 +60,12 @@ pub fn run_legacy_mode(args: Vec<String>) -> Result<(), String> {
     let args = strip_method_flag(args);
 
     match args.first().map(|value| value.as_str()) {
-        Some("post") => {
+        Some("POST") => {
             let (host, port, _) = parse_host_port_from_slice(&args[1..])?;
             let remaining = args.get(3..).unwrap_or(&[]).to_vec();
             run_post_mode(host, port, remaining, true)
         }
-        Some("get") => {
+        Some("GET") => {
             let (host, port, _) = parse_host_port_from_slice(&args[1..])?;
             run_get_mode(host, port)
         }
@@ -111,7 +107,7 @@ pub fn run_get_mode(host: String, port: u64) -> Result<(), String> {
     Ok(())
 }
 
-fn interactive_loop(host: &str, port: u64, customer: &mut Custormer) -> Result<(), String> {
+fn interactive_loop(host: &str, port: u64, customer: &mut Customer) -> Result<(), String> {
     let stdin = io::stdin();
     let mut input = String::new();
 
@@ -143,7 +139,7 @@ fn interactive_loop(host: &str, port: u64, customer: &mut Custormer) -> Result<(
             Some("help") => {
                 print_interactive_help();
             }
-            Some("post") => {
+            Some("POST") => {
                 let (filename, root) = parse_post_request(tokens.into_iter().skip(1).collect())?;
                 customer.send_file(filename, root).map_err(map_error)?;
             }
@@ -156,7 +152,7 @@ fn interactive_loop(host: &str, port: u64, customer: &mut Custormer) -> Result<(
     Ok(())
 }
 
-fn reconnect_customer(host: &str, port: u64, customer: &mut Custormer) -> Result<(), String> {
+fn reconnect_customer(host: &str, port: u64, customer: &mut Customer) -> Result<(), String> {
     if customer.connexion().is_ok() {
         return Ok(());
     }
@@ -166,11 +162,11 @@ fn reconnect_customer(host: &str, port: u64, customer: &mut Custormer) -> Result
     customer.connexion().map_err(map_error)
 }
 
-fn connect_customer_with_retry(host: &str, port: u64) -> Result<Custormer, String> {
+fn connect_customer_with_retry(host: &str, port: u64) -> Result<Customer, String> {
     let mut last_error = None;
 
     for attempt in 0..CONNECT_RETRIES {
-        let customer = Custormer::from(host.to_string(), port).map_err(map_error)?;
+        let customer = Customer::from(host.to_string(), port).map_err(map_error)?;
 
         if customer.is_connected() {
             return Ok(customer);
@@ -236,13 +232,17 @@ fn parse_post_request(args: Vec<String>) -> Result<(String, Option<String>), Str
         return Err(usage());
     }
 
-    let filename = extract_value(&args, &["--filename", "filename"])
+    let filename = sanitize_filename(&extract_value(&args, &["--filename", "filename"])
         .or_else(|| first_positional_value(&args))
-        .ok_or_else(usage)?;
+        .ok_or_else(usage)?.to_string());
+
+    if filename.is_err() {
+        return Err(usage());
+    }
 
     let root = extract_value(&args, &["--root", "root"]);
 
-    Ok((filename, root))
+    Ok((filename.unwrap(), root))
 }
 
 fn extract_value(args: &[String], keys: &[&str]) -> Option<String> {
@@ -293,4 +293,18 @@ pub fn usage() -> String {
         "Interactive commands: POST filename [--root root], reconnect, help, help prod, exit",
     ]
     .join("\n")
+}
+
+fn sanitize_filename(name: &str) -> Result<String, FileVaultError> {
+    let candidate = Path::new(name)
+        .file_name()
+        .ok_or(FileVaultError::IncorrectDataType)?
+        .to_string_lossy()
+        .into_owned();
+
+    if candidate.is_empty() || candidate == ".." {
+        return Err(FileVaultError::IncorrectDataType);
+    }
+    
+    Ok(candidate)
 }

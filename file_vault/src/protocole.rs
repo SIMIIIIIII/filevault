@@ -1,6 +1,8 @@
 use std::{io::{Read}};
 
 use crate::files_vault_errors::FileVaultError;
+const MAX_NAME_SIZE: u32 = 4096;
+const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024 * 1024; // 10 Go
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Packet {
@@ -26,6 +28,10 @@ impl Packet {
             .map_err(|_| FileVaultError::PacketCorrupted)?;
         let name_size = u32::from_be_bytes(get_name_size);
 
+        if name_size > MAX_NAME_SIZE {
+            return Err(FileVaultError::PacketCorrupted);
+        }
+
         let mut get_name = vec![0u8; name_size as usize];
         buffer.read_exact(get_name.as_mut_slice())
             .map_err(|_| FileVaultError::PacketCorrupted)?;
@@ -36,6 +42,10 @@ impl Packet {
         buffer.read_exact(&mut get_data_size)
             .map_err(|_| FileVaultError::PacketCorrupted)?;
         let data_size = u64::from_be_bytes(get_data_size);
+
+        if data_size > MAX_FILE_SIZE {
+            return Err(FileVaultError::PacketCorrupted);
+        }
 
         Ok(Packet {
             name_size: name_size as u32,

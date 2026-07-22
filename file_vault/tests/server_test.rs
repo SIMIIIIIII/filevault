@@ -8,7 +8,7 @@ use std::{
 
 use file_vault::{
     cli_helpers::{ensure_runtime_directories, runtime_directories, RuntimeMode},
-    customer::Custormer,
+    customer::Customer,
     files::{open_file_read, open_file_write, write_in_file},
     server::Server
 };
@@ -48,7 +48,7 @@ fn create_and_fill_file(filename: String) {
 }
 
 fn send_file(filename: String) {
-    let get_customer = Custormer::from(HOST.to_string(), PORT_LISTENING);
+    let get_customer = Customer::from(HOST.to_string(), PORT_LISTENING);
     assert!(get_customer.is_ok());
 
     let mut customer = get_customer.unwrap();

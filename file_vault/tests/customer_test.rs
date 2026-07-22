@@ -10,7 +10,7 @@ use std::{
 };
 
 use file_vault::{
-    customer::Custormer,
+    customer::Customer,
     files::{open_file_read, open_file_write, write_in_file},
     protocole::Packet,
 };
@@ -107,7 +107,7 @@ fn create_and_fill_file(filename: String) {
 
 #[test]
 fn test_create_customer_without_connexion() {
-    let get_customer = Custormer::from(HOST.to_string(), PORT_WITHOUT_CONNEXION);
+    let get_customer = Customer::from(HOST.to_string(), PORT_WITHOUT_CONNEXION);
     assert!(get_customer.is_ok());
 
     let customer = get_customer.unwrap();
@@ -126,7 +126,7 @@ fn test_create_customer_with_connexion() {
 
     sleep(Duration::from_millis(100));
 
-    let get_customer = Custormer::from(HOST.to_string(), PORT_WITH_CONNEXION);
+    let get_customer = Customer::from(HOST.to_string(), PORT_WITH_CONNEXION);
     assert!(get_customer.is_ok());
 
     let customer = get_customer.unwrap();
@@ -139,7 +139,7 @@ fn test_create_customer_with_connexion() {
 
 #[test]
 fn test_custmer_connexion_sucess() {
-    let get_customer = Custormer::from(HOST.to_string(), PORT_CONNEXION_SUCESS);
+    let get_customer = Customer::from(HOST.to_string(), PORT_CONNEXION_SUCESS);
     assert!(get_customer.is_ok());
 
     let mut customer = get_customer.unwrap();
@@ -163,7 +163,7 @@ fn test_custmer_connexion_sucess() {
 
 #[test]
 fn test_custmer_connexion_fails() {
-    let get_customer = Custormer::from(HOST.to_string(), PORT_CONNEXION_FAILS);
+    let get_customer = Customer::from(HOST.to_string(), PORT_CONNEXION_FAILS);
     assert!(get_customer.is_ok());
 
     let mut customer = get_customer.unwrap();
@@ -177,7 +177,7 @@ fn test_custmer_connexion_fails() {
 
 #[test]
 fn test_send_packet_fails_for_connexion() {
-    let get_customer = Custormer::from(HOST.to_string(), PORT_SEND_FAILS);
+    let get_customer = Customer::from(HOST.to_string(), PORT_SEND_FAILS);
     assert!(get_customer.is_ok());
 
     let mut customer = get_customer.unwrap();
@@ -208,7 +208,7 @@ fn test_send_packet_success() {
 
     sleep(Duration::from_millis(100));
 
-    let get_customer = Custormer::from(HOST.to_string(), PORT_SEND_SUCCESS);
+    let get_customer = Customer::from(HOST.to_string(), PORT_SEND_SUCCESS);
     assert!(get_customer.is_ok());
 
     let mut customer = get_customer.unwrap();
@@ -240,7 +240,7 @@ fn test_send_packet_with_root_sucess() {
 
     sleep(Duration::from_millis(100));
 
-    let get_customer = Custormer::from(HOST.to_string(), PORT_SEND_SUCCESS_ROOT);
+    let get_customer = Customer::from(HOST.to_string(), PORT_SEND_SUCCESS_ROOT);
     assert!(get_customer.is_ok());
 
     let mut customer = get_customer.unwrap();

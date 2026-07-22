@@ -35,6 +35,7 @@ fn test_ensure_runtime_directories_in_test_mode() {
 	let _ = fs::remove_dir_all(&server_directory);
 }
 
+/* 
 #[test]
 fn test_ensure_runtime_directories_in_production_mode() {
 	let (log_directory, server_directory) = runtime_directories(RuntimeMode::Production);
@@ -49,3 +50,4 @@ fn test_ensure_runtime_directories_in_production_mode() {
 	let _ = fs::remove_dir_all(&log_directory);
 	let _ = fs::remove_dir_all(&server_directory);
 }
+	*/

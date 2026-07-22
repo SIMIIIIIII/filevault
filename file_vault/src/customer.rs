@@ -11,17 +11,17 @@ use crate::{
     protocole::Packet
 };
 
-pub struct Custormer {
+pub struct Customer {
     host: String,
     port: u64,
     stream : Option<TcpStream>,
     is_connected: bool,
 }
 
-impl Custormer {
+impl Customer {
     pub fn from(host: String, port: u64) -> Result<Self, FileVaultError> {
         let addres = format!("{host}:{port}");
-        let connexion = Custormer::connect_to(addres);
+        let connexion = Customer::connect_to(addres);
         let mut is_connected = false;
 
         let stream = if connexion.is_err() {
@@ -31,7 +31,7 @@ impl Custormer {
             Some(connexion.unwrap())
         };
 
-        Ok(Custormer {
+        Ok(Customer {
             host: host,
             port: port,
             stream: stream,
@@ -58,7 +58,7 @@ impl Custormer {
     }
 
     pub fn connexion(&mut self) -> Result<(), FileVaultError> {
-        let connexion = Custormer::connect_to(self.get_addres());
+        let connexion = Customer::connect_to(self.get_addres());
         self.stream = if connexion.is_err() {
             return Err(connexion.unwrap_err());
         } else {
