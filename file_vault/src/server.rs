@@ -2,58 +2,94 @@ use std::{
     fs::{self},
     io::{BufReader, Read, Write},
     net::{TcpListener, TcpStream},
-    path::Path, sync::{LazyLock, Mutex},
+    path::PathBuf,
+    sync::Mutex,
+    time::{Duration, Instant},
 };
 
 use crate::{
-    files::{open_file_write, write_in_file},
+    files::{add_line_in_file, open_file_append, open_file_write},
     files_vault_errors::FileVaultError,
-    protocole::Packet
+    protocole::Packet,
 };
 
 use chrono::Utc;
-use sha2::{
-    Digest,
-    Sha256
-};
+use sha2::{Digest, Sha256};
 
+const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 pub struct Server {
-    numbers_of_connexion : LazyLock<Mutex<u128>>,
+    numbers_of_connexion: Mutex<u128>,
     host: String,
-    port: u64
+    port: u64,
+    storage_root: PathBuf,
+    history_path: PathBuf,
 }
-
 
 impl Server {
     pub fn from(host: String, port: u64) -> Self {
-        Server {
-            numbers_of_connexion: LazyLock::new(|| Mutex::new(0u128)),
+        Self {
+            numbers_of_connexion: Mutex::new(0u128),
             host,
-            port
+            port,
+            storage_root: PathBuf::from("server_files"),
+            history_path: PathBuf::from("log_files/history.log"),
         }
     }
 
-    fn get_adress(&self) -> String {
+    pub fn from_with_history_path(host: String, port: u64, history_path: PathBuf) -> Self {
+        Self {
+            numbers_of_connexion: Mutex::new(0u128),
+            host,
+            port,
+            storage_root: PathBuf::from("server_files"),
+            history_path,
+        }
+    }
+
+    pub fn from_with_paths(
+        host: String,
+        port: u64,
+        storage_root: PathBuf,
+        history_path: PathBuf,
+    ) -> Self {
+        Self {
+            numbers_of_connexion: Mutex::new(0u128),
+            host,
+            port,
+            storage_root,
+            history_path,
+        }
+    }
+
+    pub fn get_adress(&self) -> String {
         format!("{}:{}", self.host, self.port)
     }
 
-    fn manage_customer(stream: TcpStream) -> Result<(), FileVaultError> {
-        let mut reader = BufReader::new(stream);
+    pub fn get_number_of_connexion(&self) -> u128 {
+        let res = self.numbers_of_connexion.lock().unwrap();
+        *res
+    }
 
+    fn manage_customer(
+        stream: TcpStream,
+        storage_root: PathBuf,
+        history_path: PathBuf,
+    ) -> Result<(), FileVaultError> {
+        let mut reader = BufReader::new(stream);
         let packet = Packet::from_bytes(&mut reader)?;
 
         let mut file = open_file_write(
-            &Path::new("server_files")
+            &storage_root
                 .join(packet.get_name().as_str())
                 .to_string_lossy()
-                .into_owned()
-            )
-            .map_err(|e| FileVaultError::FileOpeningError(e.to_string()))?;
+                .into_owned(),
+            false,
+        )
+        .map_err(|e| FileVaultError::FileOpeningError(e.to_string()))?;
 
-        Server::write_data(&mut reader, &mut file, packet.data_size())?;
-
-        let _ = Self::update_history(packet.get_name(), packet.data_size());
+        Self::write_data(&mut reader, &mut file, packet.data_size())?;
+        let _ = Self::update_history(packet.get_name(), packet.data_size(), history_path);
 
         Ok(())
     }
@@ -63,20 +99,25 @@ impl Server {
         *number_of_connexion = number_of_connexion.saturating_add(1);
     }
 
-    fn update_history(filename: String, size: u64) -> Result<(), FileVaultError> {
+    fn update_history(
+        filename: String,
+        size: u64,
+        history_path: PathBuf,
+    ) -> Result<(), FileVaultError> {
         let now = Utc::now().format("%Y-%m-%d %H:%M:%S");
-        let entry = format!("[SERVER]: {now}  -  {filename} {size} \n");
+        let entry = format!("[SERVER]: {now} UCT  -  {filename} {size} - bytes");
 
-        let mut file = open_file_write("history.log")
+        let file_exist = history_path.exists();
+        let mut file = open_file_append(&history_path.to_string_lossy().to_owned(), file_exist)
             .map_err(|e| FileVaultError::FileOpeningError(e.to_string()))?;
 
-        write_in_file(&mut file, entry.bytes().collect())
+        add_line_in_file(&mut file, entry.bytes().collect())
             .map_err(|e| FileVaultError::FileWritingError(e.to_string()))?;
 
         Ok(())
     }
 
-    pub fn write_data(
+    fn write_data(
         reader: &mut BufReader<TcpStream>,
         file: &mut fs::File,
         data_size: u64,
@@ -119,23 +160,39 @@ impl Server {
         Ok(())
     }
 
-    pub fn listening(&mut self) -> Result<(), FileVaultError> {
+    pub fn listening(&mut self, timeout: Duration) -> Result<(), FileVaultError> {
         let listener = TcpListener::bind(self.get_adress())
             .map_err(|e| FileVaultError::ConnectionError(e.to_string()))?;
+        listener
+            .set_nonblocking(true)
+            .map_err(|e| FileVaultError::ConnectionError(e.to_string()))?;
+
+        let mut last_activity = Instant::now();
 
         println!("[SERVER]: Listening on port {}", self.port);
 
-        for flux in listener.incoming() {
-            match flux {
-                Ok(stream) => {
+        loop {
+            match listener.accept() {
+                Ok((stream, _)) => {
+                    last_activity = Instant::now();
                     self.add_new_connexion();
-                    std::thread::spawn(|| Self::manage_customer(stream));
-                },
+                    let storage_root = self.storage_root.clone();
+                    let history_path = self.history_path.clone();
+                    std::thread::spawn(move || Self::manage_customer(stream, storage_root, history_path));
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    if last_activity.elapsed() >= timeout {
+                        break;
+                    }
+
+                    std::thread::sleep(ACCEPT_POLL_INTERVAL);
+                }
                 Err(e) => {
                     return Err(FileVaultError::ConnectionError(e.to_string()));
                 }
             }
         }
+
         Ok(())
     }
 }

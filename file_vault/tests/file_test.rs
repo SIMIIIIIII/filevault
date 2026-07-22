@@ -7,7 +7,9 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use file_vault::files::{self, open_file_write, write_in_file};
+use file_vault::files::{
+    self, add_line_in_file, open_file_append, open_file_write, write_in_file,
+};
 
 static FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -46,7 +48,7 @@ fn test_open_file_succes() {
 fn test_open_file_write() {
     let filename = get_file_name();
 
-    assert!(open_file_write(filename.as_str()).is_ok());
+    assert!(open_file_write(filename.as_str(), false).is_ok());
     assert!(Path::new(&filename).exists());
     let _ = fs::remove_file(filename);
 }
@@ -55,7 +57,7 @@ fn test_open_file_write() {
 fn test_write_in_file() {
     let filename = get_file_name();
 
-    let get_file = open_file_write(filename.as_str());
+    let get_file = open_file_write(filename.as_str(), false);
     assert!(get_file.is_ok());
 
     let mut file = get_file.unwrap();
@@ -71,5 +73,55 @@ fn test_write_in_file() {
     assert!(reopened.unwrap().read_to_end(&mut res).is_ok());
 
     assert_eq!(res.clone(), bytes.clone());
+    let _ = fs::remove_file(filename);
+}
+
+#[test]
+fn test_open_file_append() {
+    let filename = get_file_name();
+
+    let get_file = open_file_write(filename.as_str(), false);
+    assert!(get_file.is_ok());
+
+    let mut file = get_file.unwrap();
+    assert!(write_in_file(&mut file, b"old".to_vec()).is_ok());
+    drop(file);
+
+    let append_file = open_file_append(filename.as_str(), true);
+    assert!(append_file.is_ok());
+
+    let mut file = append_file.unwrap();
+    assert!(write_in_file(&mut file, b"new".to_vec()).is_ok());
+    drop(file);
+
+    let reopened = files::open_file_read(filename.clone());
+    assert!(reopened.is_ok());
+
+    let mut content = Vec::new();
+    assert!(reopened.unwrap().read_to_end(&mut content).is_ok());
+
+    assert_eq!(content, b"oldnew".to_vec());
+    let _ = fs::remove_file(filename);
+}
+
+#[test]
+fn test_add_line_in_file() {
+    let filename = get_file_name();
+
+    let get_file = open_file_append(filename.as_str(), false);
+    assert!(get_file.is_ok());
+
+    let mut file = get_file.unwrap();
+    assert!(add_line_in_file(&mut file, b"line1".to_vec()).is_ok());
+    assert!(add_line_in_file(&mut file, b"line2".to_vec()).is_ok());
+    drop(file);
+
+    let reopened = files::open_file_read(filename.clone());
+    assert!(reopened.is_ok());
+
+    let mut content = String::new();
+    assert!(reopened.unwrap().read_to_string(&mut content).is_ok());
+
+    assert_eq!(content, "line1\nline2\n");
     let _ = fs::remove_file(filename);
 }

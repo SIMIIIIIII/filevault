@@ -95,7 +95,7 @@ fn get_path(filename: String, root: String) -> String {
 
 fn create_and_fill_file(filename: String) {
 
-    let get_file = open_file_write(filename.as_str());
+    let get_file = open_file_write(filename.as_str(), false);
     assert!(get_file.is_ok());
 
     let mut file = get_file.unwrap();
@@ -134,7 +134,7 @@ fn test_create_customer_with_connexion() {
     assert!(customer.is_connected());
     assert_eq!(address, customer.get_addres());
 
-    let _ = thread.join();
+    let _ = thread.join().unwrap();
 }
 
 #[test]
@@ -158,7 +158,7 @@ fn test_custmer_connexion_sucess() {
     assert!(customer.connexion().is_ok());
     assert!(customer.is_connected());
 
-    let _ = thread.join();
+    let _ = thread.join().unwrap();
 }
 
 #[test]
@@ -226,7 +226,7 @@ fn test_send_packet_success() {
     let _ = fs::remove_file(filename);
     assert!(get_sent.is_ok());
 
-    let _ = thread.join();
+    let _ = thread.join().unwrap();
 
 }
 
@@ -259,5 +259,5 @@ fn test_send_packet_with_root_sucess() {
     let _ = fs::remove_file(file_path.clone());
     assert!(get_sent.is_ok());
 
-    let _ = thread.join();
+    let _ = thread.join().unwrap();
 }
