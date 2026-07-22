@@ -1,20 +1,11 @@
 use std::{
-    env,
-    time::Duration,
+    env, path::PathBuf, time::Duration,
 };
 
 use file_vault::{
-    server::Server,
     cli_helpers::{
-        ensure_runtime_directories,
-        parse_runtime_mode,
-        usage,
-        parse_host_port,
-        map_error,
-        run_legacy_mode,
-        run_get_mode,
-        parse_host_port_with_first
-    }
+        RuntimeMode, ensure_runtime_directories, get_history_test, map_error, parse_host_port, parse_host_port_with_first, parse_runtime_mode, run_get_mode, run_legacy_mode, runtime_directories, usage
+    }, server::Server
 };
 
 const LISTENER_TIMEOUT: Duration = Duration::from_secs(15 * 60);
@@ -38,14 +29,42 @@ fn run() -> Result<(), String> {
     match first.as_str() {
         "server" => {
             let (host, port) = parse_host_port(args.collect())?;
-            let mut server = Server::from(host, port);
+            
+
+            let mut server = if runtime_mode == RuntimeMode::Production {
+                Server::from(host, port)
+            } else {
+                let (storage_root, log_root) = runtime_directories(RuntimeMode::Test);
+                Server::from_with_paths(
+                    host,
+                    port,
+                    PathBuf::from(storage_root),
+                    PathBuf::from(get_history_test(log_root))
+                )
+            };
+            
             server.listening(LISTENER_TIMEOUT).map_err(map_error)?;
             Ok(())
         }
-        "filevault" | "customer" => run_legacy_mode(args.collect()),
+        "filevault" | "customer" => run_legacy_mode(
+            args.collect(),
+            if runtime_mode == RuntimeMode::Production {
+                None
+            } else {
+                Some(runtime_mode)
+            }
+        ),
         _ => {
             let (host, port) = parse_host_port_with_first(first, args.collect())?;
-            run_get_mode(host, port)
+            run_get_mode(
+                host,
+                port,
+                if runtime_mode == RuntimeMode::Production {
+                    None
+                } else {
+                    Some(runtime_mode)
+                }
+            )
         }
     }
 }

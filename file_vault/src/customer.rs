@@ -47,6 +47,14 @@ impl Customer {
         format!("{}:{}", self.host, self.port)
     }
 
+    pub fn get_host(&self) -> String {
+        self.host.clone()
+    }
+
+    pub fn get_port(&self) -> u64 {
+        self.port
+    }
+
     pub fn connect_to(addres: String) -> Result<TcpStream, FileVaultError> {
         let stream = TcpStream::connect(addres);
 

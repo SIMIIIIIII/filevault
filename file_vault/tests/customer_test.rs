@@ -114,6 +114,8 @@ fn test_create_customer_without_connexion() {
 
     assert!(!customer.is_connected());
     assert_eq!(format!("{HOST}:{PORT_WITHOUT_CONNEXION}"), customer.get_addres());
+    assert_eq!(HOST, customer.get_host());
+    assert_eq!(PORT_WITHOUT_CONNEXION, customer.get_port())
 }
 
 #[test]

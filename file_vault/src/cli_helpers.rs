@@ -26,7 +26,9 @@ pub fn parse_runtime_mode(args: Vec<String>) -> (RuntimeMode, Vec<String>) {
 
     for argument in args {
         match argument.as_str() {
-            "--test" | "--tests" | "--test-mode" => runtime_mode = RuntimeMode::Test,
+            "--test" | "--tests" | "--test-mode" => {
+                println!("on y est");
+                runtime_mode = RuntimeMode::Test},
             _ => filtered.push(argument),
         }
     }
@@ -56,18 +58,24 @@ pub fn ensure_runtime_directories(runtime_mode: RuntimeMode) -> Result<(), Strin
     Ok(())
 }
 
-pub fn run_legacy_mode(args: Vec<String>) -> Result<(), String> {
+pub fn run_legacy_mode(args: Vec<String>, runtime_mode: Option<RuntimeMode>) -> Result<(), String> {
     let args = strip_method_flag(args);
 
     match args.first().map(|value| value.as_str()) {
         Some("POST") => {
             let (host, port, _) = parse_host_port_from_slice(&args[1..])?;
             let remaining = args.get(3..).unwrap_or(&[]).to_vec();
-            run_post_mode(host, port, remaining, true)
+            run_post_mode(
+                host,
+                port,
+                runtime_mode,
+                remaining,
+                true
+            )
         }
         Some("GET") => {
             let (host, port, _) = parse_host_port_from_slice(&args[1..])?;
-            run_get_mode(host, port)
+            run_get_mode(host, port, runtime_mode)
         }
         _ => Err(usage()),
     }
@@ -76,11 +84,17 @@ pub fn run_legacy_mode(args: Vec<String>) -> Result<(), String> {
 fn run_post_mode(
     host: String,
     port: u64,
+    runtime_mode: Option<RuntimeMode>,
     remaining: Vec<String>,
     join_server: bool,
 ) -> Result<(), String> {
     let (filename, root) = parse_post_request(remaining)?;
-    let server_handle = spawn_server(host.clone(), port, QUICK_TRANSFER_TIMEOUT);
+    let server_handle = spawn_server(
+        host.clone(),
+        port,
+        QUICK_TRANSFER_TIMEOUT,
+        runtime_mode
+    );
 
     thread::sleep(STARTUP_DELAY);
 
@@ -97,17 +111,29 @@ fn run_post_mode(
     Ok(())
 }
 
-pub fn run_get_mode(host: String, port: u64) -> Result<(), String> {
-    let server_handle = spawn_server(host.clone(), port, LISTENER_TIMEOUT);
+pub fn run_get_mode(
+    host: String,
+    port: u64,
+    runtime_mode: Option<RuntimeMode>
+) -> Result<(), String> {
+    let server_handle = spawn_server(
+        host.clone(),
+        port,
+        LISTENER_TIMEOUT,
+        runtime_mode
+    );
     let mut customer = connect_customer_with_retry(&host, port)?;
 
-    interactive_loop(&host, port, &mut customer)?;
+    interactive_loop(&mut customer, runtime_mode)?;
 
     drop(server_handle);
     Ok(())
 }
 
-fn interactive_loop(host: &str, port: u64, customer: &mut Customer) -> Result<(), String> {
+fn interactive_loop(
+    customer: &mut Customer,
+    runtime_mode: Option<RuntimeMode>
+) -> Result<(), String> {
     let stdin = io::stdin();
     let mut input = String::new();
 
@@ -131,7 +157,7 @@ fn interactive_loop(host: &str, port: u64, customer: &mut Customer) -> Result<()
         match tokens.first().map(|value| value.to_ascii_lowercase()).as_deref() {
             Some("exit") => break,
             Some("reconnect") => {
-                reconnect_customer(host, port, customer)?;
+                reconnect_customer(customer, runtime_mode)?;
             }
             Some("help") if tokens.get(1).map(|value| value.eq_ignore_ascii_case("prod")).unwrap_or(false) => {
                 print_production_help();
@@ -152,12 +178,20 @@ fn interactive_loop(host: &str, port: u64, customer: &mut Customer) -> Result<()
     Ok(())
 }
 
-fn reconnect_customer(host: &str, port: u64, customer: &mut Customer) -> Result<(), String> {
+fn reconnect_customer(
+    customer: &mut Customer,
+    runtime_mode: Option<RuntimeMode>
+) -> Result<(), String> {
     if customer.connexion().is_ok() {
         return Ok(());
     }
 
-    let _server_handle = spawn_server(host.to_string(), port, LISTENER_TIMEOUT);
+    let _server_handle = spawn_server(
+        customer.get_host(),
+        customer.get_port(),
+        LISTENER_TIMEOUT,
+        runtime_mode
+    );
     thread::sleep(STARTUP_DELAY);
     customer.connexion().map_err(map_error)
 }
@@ -186,9 +220,20 @@ fn spawn_server(
     host: String,
     port: u64,
     timeout: Duration,
+    runtime_mode: Option<RuntimeMode>
 ) -> thread::JoinHandle<Result<(), FileVaultError>> {
     thread::spawn(move || {
-        let mut server = Server::from(host, port);
+        let mut server = if runtime_mode.is_none() {
+            Server::from(host, port)
+        } else {
+            let (storage_root, log_root) = runtime_directories(RuntimeMode::Test);
+            Server::from_with_paths(
+                host,
+                port,
+                PathBuf::from(storage_root),
+                PathBuf::from(get_history_test(log_root))
+            )
+        };
         server.listening(timeout)
     })
 }
@@ -307,4 +352,12 @@ fn sanitize_filename(name: &str) -> Result<String, FileVaultError> {
     }
     
     Ok(candidate)
+}
+
+pub fn get_history_test(log_root: PathBuf) -> String {
+    log_root
+        .join("history.log")
+        .to_string_lossy()
+        .to_owned()
+        .to_string()
 }

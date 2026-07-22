@@ -34,20 +34,3 @@ fn test_ensure_runtime_directories_in_test_mode() {
 	let _ = fs::remove_dir_all(&log_directory);
 	let _ = fs::remove_dir_all(&server_directory);
 }
-
-/* 
-#[test]
-fn test_ensure_runtime_directories_in_production_mode() {
-	let (log_directory, server_directory) = runtime_directories(RuntimeMode::Production);
-
-	let _ = fs::remove_dir_all(&log_directory);
-	let _ = fs::remove_dir_all(&server_directory);
-
-	assert!(ensure_runtime_directories(RuntimeMode::Production).is_ok());
-	assert!(Path::new(&log_directory).exists());
-	assert!(Path::new(&server_directory).exists());
-
-	let _ = fs::remove_dir_all(&log_directory);
-	let _ = fs::remove_dir_all(&server_directory);
-}
-	*/
