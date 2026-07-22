@@ -27,7 +27,6 @@ pub fn parse_runtime_mode(args: Vec<String>) -> (RuntimeMode, Vec<String>) {
     for argument in args {
         match argument.as_str() {
             "--test" | "--tests" | "--test-mode" => {
-                println!("on y est");
                 runtime_mode = RuntimeMode::Test},
             _ => filtered.push(argument),
         }
@@ -226,7 +225,7 @@ fn spawn_server(
         let mut server = if runtime_mode.is_none() {
             Server::from(host, port)
         } else {
-            let (storage_root, log_root) = runtime_directories(RuntimeMode::Test);
+            let (log_root, storage_root) = runtime_directories(RuntimeMode::Test);
             Server::from_with_paths(
                 host,
                 port,
