@@ -174,6 +174,88 @@ Run a specific test file:
 cargo test --test server_test
 ```
 
+### Test Coverage
+
+From [file_vault](file_vault), run test coverage with `cargo-llvm-cov`:
+
+```bash
+cargo llvm-cov
+```
+
+Show only the summary in the terminal:
+
+```bash
+cargo llvm-cov --summary-only
+```
+
+Generate an HTML coverage report (default location under `target`):
+
+```bash
+cargo llvm-cov --html
+```
+
+Generate an HTML coverage report in a versionable folder for GitHub:
+
+```bash
+cargo llvm-cov clean --workspace
+cargo llvm-cov --html --output-dir ../docs/coverage
+```
+
+If a flaky test fails but you still want to publish the report artifact:
+
+```bash
+cargo llvm-cov --html --output-dir ../docs/coverage --ignore-run-fail
+```
+
+Coverage report folder in this repository:
+
+- [docs/coverage](docs/coverage)
+- [docs/coverage/html/index.html](docs/coverage/html/index.html)
+
+For a clean coverage run in the default location:
+
+```bash
+cargo llvm-cov clean --workspace
+cargo llvm-cov --html
+```
+
+Export LCOV output for CI tools:
+
+```bash
+cargo llvm-cov --lcov --output-path target/llvm-cov/lcov.info
+```
+
+If you enable GitHub Pages from the `docs` folder, the report is typically available at:
+
+- `https://<github-username>.github.io/<repository-name>/coverage/html/`
+
+### Benchmarking
+
+Run the throughput benchmark from [file_vault](file_vault):
+
+```bash
+cargo bench --bench project_wothout_tokio
+```
+
+Generated benchmark artifacts are stored in [file_vault/benches/results](file_vault/benches/results):
+
+- `project_wothout_tokio.csv`: latest CSV for tooling.
+- `project_wothout_tokio_YYYYMMDD_HHMMSS.csv`: timestamped CSV snapshot.
+- `project_wothout_tokio.md`: latest Markdown summary.
+- `project_wothout_tokio_YYYYMMDD_HHMMSS.md`: timestamped Markdown summary.
+
+Read the latest CSV in the console:
+
+```bash
+cargo run --bin bench_results_reader
+```
+
+Read a specific benchmark CSV:
+
+```bash
+cargo run --bin bench_results_reader -- benches/results/project_wothout_tokio_YYYYMMDD_HHMMSS.csv
+```
+
 ## Runtime Output
 
 Standard mode directories:
