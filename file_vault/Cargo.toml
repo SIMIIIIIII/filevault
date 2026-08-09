@@ -6,3 +6,12 @@ edition = "2024"
 [dependencies]
 sha2 = "0.10"
 chrono = "0.4"
+tempfile = "3"
+
+[[bin]]
+name = "bench_results_reader"
+path = "src/bench_results_reader.rs"
+
+[[bench]]
+name = "project_wothout_tokio"
+harness = false

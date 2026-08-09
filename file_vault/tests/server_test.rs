@@ -1,26 +1,28 @@
 use std::{
     fs,
     io::Read,
+    net::TcpListener,
     path::PathBuf,
     thread::{self, sleep},
     time::Duration
 };
 
 use file_vault::{
-    cli_helpers::{ensure_runtime_directories, runtime_directories, RuntimeMode},
     customer::Customer,
     files::{open_file_read, open_file_write, write_in_file},
     server::Server
 };
+use tempfile::tempdir;
 
 
 const HOST: &str = "::1";
 const PORT_CREATE: u64 = 8070u64;
-const PORT_LISTENING: u64 = 8071u64;
 const FILE_TO_SAVE: &str = "test_server.txt";
-const DEFAULT_TIMEOUT: Duration = Duration::from_millis(500);
-const FILE_READY_TIMEOUT: Duration = Duration::from_secs(2);
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(2);
+const FILE_READY_TIMEOUT: Duration = Duration::from_secs(5);
 const FILE_READY_POLL: Duration = Duration::from_millis(25);
+const CONNECT_RETRIES: usize = 60;
+const CONNECT_RETRY_DELAY: Duration = Duration::from_millis(50);
 
 fn wait_until_file_readable(path: &str, timeout: Duration, poll: Duration) -> bool {
     let start = std::time::Instant::now();
@@ -47,12 +49,23 @@ fn create_and_fill_file(filename: String) {
     drop(file);
 }
 
-fn send_file(filename: String) {
-    let get_customer = Customer::from(HOST.to_string(), PORT_LISTENING);
-    assert!(get_customer.is_ok());
+fn connect_customer_with_retry(port: u64) -> Customer {
+    for attempt in 0..CONNECT_RETRIES {
+        let customer = Customer::from(HOST.to_string(), port).expect("failed to create customer");
+        if customer.is_connected() {
+            return customer;
+        }
 
-    let mut customer = get_customer.unwrap();
-    assert!(customer.is_connected());
+        if attempt + 1 < CONNECT_RETRIES {
+            sleep(CONNECT_RETRY_DELAY);
+        }
+    }
+
+    panic!("unable to connect to server on {HOST}:{port}");
+}
+
+fn send_file(filename: String, port: u64) {
+    let mut customer = connect_customer_with_retry(port);
 
     create_and_fill_file(filename.clone());
 
@@ -65,11 +78,7 @@ fn send_file(filename: String) {
     assert!(get_sent.is_ok()); 
 }
 
-fn receive_packet() {
-    assert!(ensure_runtime_directories(RuntimeMode::Test).is_ok());
-
-    let (storage_root, log_root) = runtime_directories(RuntimeMode::Test);
-
+fn receive_packet(port: u64, storage_root: PathBuf, log_root: PathBuf) {
     let filename: String = storage_root
         .join(FILE_TO_SAVE)
         .to_string_lossy()
@@ -83,7 +92,7 @@ fn receive_packet() {
 
     let mut server = Server::from_with_paths(
         HOST.to_string(),
-        PORT_LISTENING,
+        port,
         PathBuf::from(storage_root),
         PathBuf::from(history.clone()),
     );
@@ -132,7 +141,12 @@ fn test_create_server() {
 
 #[test]
 fn test_server_listening() {
-    let (storage_root, _) = runtime_directories(RuntimeMode::Test);
+    let port = find_available_port();
+    let temp_root = tempdir().expect("unable to create temp root");
+    let storage_root = temp_root.path().join("storage");
+    let log_root = temp_root.path().join("logs");
+    assert!(fs::create_dir_all(&storage_root).is_ok());
+    assert!(fs::create_dir_all(&log_root).is_ok());
 
     let filename: String = storage_root
         .join(FILE_TO_SAVE)
@@ -140,11 +154,20 @@ fn test_server_listening() {
         .to_string();
 
     let thead = thread::spawn(move || {
-        receive_packet();
+        receive_packet(port, storage_root, log_root);
     });
-    sleep(Duration::from_millis(100));
 
-    send_file(filename);
+    send_file(filename, port);
 
     let _ = thead.join().unwrap();
+}
+
+fn find_available_port() -> u64 {
+    let listener = TcpListener::bind((HOST, 0)).expect("unable to bind to ephemeral port");
+    let port = listener
+        .local_addr()
+        .expect("unable to read local address")
+        .port();
+    drop(listener);
+    u64::from(port)
 }

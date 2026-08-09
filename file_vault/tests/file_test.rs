@@ -8,7 +8,11 @@ use std::{
 };
 
 use file_vault::files::{
-    self, add_line_in_file, open_file_append, open_file_write, write_in_file,
+    self,
+    add_line_in_file,
+    open_file_append,
+    open_file_write,
+    write_in_file,
 };
 
 static FILE_COUNTER: AtomicU64 = AtomicU64::new(0);

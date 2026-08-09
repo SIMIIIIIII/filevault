@@ -8,6 +8,7 @@ use crate::{
     server::Server
 };
 
+
 const QUICK_TRANSFER_TIMEOUT: Duration = Duration::from_secs(2);
 const LISTENER_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 const STARTUP_DELAY: Duration = Duration::from_millis(100);
@@ -164,7 +165,7 @@ fn interactive_loop(
             Some("help") => {
                 print_interactive_help();
             }
-            Some("POST") => {
+            Some("post") => {
                 let (filename, root) = parse_post_request(tokens.into_iter().skip(1).collect())?;
                 customer.send_file(filename, root).map_err(map_error)?;
             }
