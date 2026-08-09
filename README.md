@@ -56,15 +56,15 @@ Core capabilities:
 
 ## Project Structure
 
-Main source code is located in [file_vault](file_vault):
+Main source code is located at the repository root:
 
-- [file_vault/src/main.rs](file_vault/src/main.rs): CLI entry point and runtime mode routing.
-- [file_vault/src/server.rs](file_vault/src/server.rs): TCP listener, file receiving, hash validation, and logging.
-- [file_vault/src/customer.rs](file_vault/src/customer.rs): TCP client connection and file sending logic.
-- [file_vault/src/protocole.rs](file_vault/src/protocole.rs): packet serialization/deserialization.
-- [file_vault/src/hashing.rs](file_vault/src/hashing.rs): hashing helper for streamed payload writes.
-- [file_vault/src/cli_helpers.rs](file_vault/src/cli_helpers.rs): argument parsing and CLI helpers.
-- [file_vault/tests](file_vault/tests): test suite.
+- [src/main.rs](src/main.rs): CLI entry point and runtime mode routing.
+- [src/server.rs](src/server.rs): TCP listener, file receiving, hash validation, and logging.
+- [src/customer.rs](src/customer.rs): TCP client connection and file sending logic.
+- [src/protocole.rs](src/protocole.rs): packet serialization/deserialization.
+- [src/hashing.rs](src/hashing.rs): hashing helper for streamed payload writes.
+- [src/cli_helpers.rs](src/cli_helpers.rs): argument parsing and CLI helpers.
+- [tests](tests): test suite.
 
 ## Requirements
 
@@ -83,7 +83,6 @@ cargo --version
 From the repository root:
 
 ```bash
-cd file_vault
 cargo build
 ```
 
@@ -95,7 +94,7 @@ cargo build --release
 
 ## Usage
 
-Run all commands from [file_vault](file_vault).
+Run all commands from the repository root.
 
 ### 1. Start Server Only
 
@@ -151,8 +150,8 @@ The parser also supports `customer` and `method/--method` aliases.
 
 Use `--test` (also `--tests` or `--test-mode`) to force runtime output into test folders:
 
-- [file_vault/tests/log_files](file_vault/tests/log_files)
-- [file_vault/tests/server_files](file_vault/tests/server_files)
+- [tests/log_files](tests/log_files)
+- [tests/server_files](tests/server_files)
 
 Example:
 
@@ -176,7 +175,7 @@ cargo test --test server_test
 
 ### Test Coverage
 
-From [file_vault](file_vault), run test coverage with `cargo-llvm-cov`:
+From the repository root, run test coverage with `cargo-llvm-cov`:
 
 ```bash
 cargo llvm-cov
@@ -198,13 +197,13 @@ Generate an HTML coverage report in a versionable folder for GitHub:
 
 ```bash
 cargo llvm-cov clean --workspace
-cargo llvm-cov --html --output-dir ../docs/coverage
+cargo llvm-cov --html --output-dir docs/coverage
 ```
 
 If a flaky test fails but you still want to publish the report artifact:
 
 ```bash
-cargo llvm-cov --html --output-dir ../docs/coverage --ignore-run-fail
+cargo llvm-cov --html --output-dir docs/coverage --ignore-run-fail
 ```
 
 Coverage report folder in this repository:
@@ -231,13 +230,13 @@ If you enable GitHub Pages from the `docs` folder, the report is typically avail
 
 ### Benchmarking
 
-Run the throughput benchmark from [file_vault](file_vault):
+Run the throughput benchmark from the repository root:
 
 ```bash
 cargo bench --bench project_wothout_tokio
 ```
 
-Generated benchmark artifacts are stored in [file_vault/benches/results](file_vault/benches/results):
+Generated benchmark artifacts are stored in [benches/results](benches/results):
 
 - `project_wothout_tokio.csv`: latest CSV for tooling.
 - `project_wothout_tokio_YYYYMMDD_HHMMSS.csv`: timestamped CSV snapshot.
@@ -260,13 +259,13 @@ cargo run --bin bench_results_reader -- benches/results/project_wothout_tokio_YY
 
 Standard mode directories:
 
-- [file_vault/server_files](file_vault/server_files): received files.
-- [file_vault/log_files/history.log](file_vault/log_files/history.log): transfer history.
+- [server_files](server_files): received files.
+- [log_files/history.log](log_files/history.log): transfer history.
 
 Test mode directories:
 
-- [file_vault/tests/server_files](file_vault/tests/server_files)
-- [file_vault/tests/log_files/history.log](file_vault/tests/log_files/history.log)
+- [tests/server_files](tests/server_files)
+- [tests/log_files/history.log](tests/log_files/history.log)
 
 History entries include timestamp, filename, and payload size in bytes.
 
