@@ -4,7 +4,17 @@ use std::{
 
 use file_vault::{
     cli_helpers::{
-        RuntimeMode, ensure_runtime_directories, get_history_test, map_error, parse_host_port, parse_host_port_with_first, parse_runtime_mode, run_get_mode, run_legacy_mode, runtime_directories, usage
+        RuntimeMode,
+        ensure_runtime_directories,
+        get_history_test,
+        map_error,
+        parse_host_port,
+        parse_host_port_with_first,
+        parse_runtime_mode,
+        run_get_mode,
+        run_legacy_mode,
+        runtime_directories,
+        usage
     }, server::Server
 };
 

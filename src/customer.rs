@@ -1,5 +1,6 @@
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream,
+    io::{self, AsyncReadExt, AsyncWriteExt},
+    net::TcpStream
 };
 
 use std::path::Path;
@@ -77,6 +78,21 @@ impl Customer {
         Ok(())
     }
 
+    async fn print_progress(data_size : u64, size_progress: usize) {
+        let size_bare = 20;
+        let percent = ((size_progress as f64)/data_size as f64) * 100.0;
+        
+        let filled_blocs = ((size_progress as f64 / data_size as f64) * size_bare as f64) as usize;
+        let blocs_vides = size_bare - filled_blocs;
+        
+        let filling = "*".repeat(filled_blocs);
+        let empty = "_".repeat(blocs_vides);
+
+        print!("\r[{}{}] {:>3.0}%", filling, empty, percent);
+
+        io::stdout().flush().await.unwrap();
+    }
+
     pub async fn send_file(&mut self, filename: String, root: Option<String>) -> Result<(), FileVaultError> {
         if !self.is_connected {
             self.connexion().await?;
@@ -122,6 +138,8 @@ impl Customer {
             return Err(FileVaultError::TcpSendingError(e.to_string()));
         }
 
+        let mut size_progress : usize = 0;
+
         let file_hash = {
             let mut buffer = [0_u8; 8_192];
             let mut hasher = Sha256::new();
@@ -134,12 +152,15 @@ impl Customer {
                     break;
                 }
 
+                size_progress = size_progress + bytes_read;
+                Customer::print_progress(data_size, size_progress).await;
+
                 stream.write_all(&buffer[..bytes_read]).await
                 .map_err(|e| FileVaultError::TcpSendingError(e.to_string()))?;
                 hasher.update(&buffer[..bytes_read]);
                 
             }
-            
+            println!("");
             hasher.finalize()
         };
 
@@ -150,6 +171,5 @@ impl Customer {
         println!("[CLIENT]: file succefull sent!");
 
         Ok(())
-
     }
 }

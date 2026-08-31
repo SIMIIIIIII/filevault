@@ -2,6 +2,7 @@
 name = "file_vault"
 version = "0.1.0"
 edition = "2024"
+default-run = "file_vault"
 
 [dependencies]
 sha2 = "0.10"
@@ -14,5 +15,5 @@ name = "bench_results_reader"
 path = "src/bench_results_reader.rs"
 
 [[bench]]
-name = "project_wothout_tokio"
+name = "benchmark"
 harness = false
