@@ -1,10 +1,13 @@
+use tokio::{
+    net::{TcpListener,TcpStream},
+    time::{Instant, sleep_until, Duration},
+    fs,
+    io::{AsyncWriteExt, BufReader, AsyncReadExt},
+    sync::Mutex
+};
+
 use std::{
-    fs::{self},
-    io::{BufReader, Read, Write},
-    net::{TcpListener, TcpStream},
     path::PathBuf,
-    sync::Mutex,
-    time::{Duration, Instant},
 };
 
 use crate::{
@@ -16,7 +19,6 @@ use crate::{
 use chrono::Utc;
 use sha2::{Digest, Sha256};
 
-const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 pub struct Server {
     numbers_of_connexion: Mutex<u128>,
@@ -66,18 +68,18 @@ impl Server {
         format!("{}:{}", self.host, self.port)
     }
 
-    pub fn get_number_of_connexion(&self) -> u128 {
-        let res = self.numbers_of_connexion.lock().unwrap();
+    pub async fn get_number_of_connexion(&self) -> u128 {
+        let res = self.numbers_of_connexion.lock().await;
         *res
     }
 
-    fn manage_customer(
+    async fn manage_customer(
         stream: TcpStream,
         storage_root: PathBuf,
         history_path: PathBuf,
     ) -> Result<(), FileVaultError> {
         let mut reader = BufReader::new(stream);
-        let packet = Packet::from_bytes(&mut reader)?;
+        let packet = Packet::from_bytes(&mut reader).await?;
 
         let mut file = open_file_write(
             &storage_root
@@ -85,21 +87,21 @@ impl Server {
                 .to_string_lossy()
                 .into_owned(),
             false,
-        )
+        ).await
         .map_err(|e| FileVaultError::FileOpeningError(e.to_string()))?;
 
-        Self::write_data(&mut reader, &mut file, packet.data_size())?;
-        let _ = Self::update_history(packet.get_name(), packet.data_size(), history_path);
+        Self::write_data(&mut reader, &mut file, packet.data_size()).await?;
+        let _ = Self::update_history(packet.get_name(), packet.data_size(), history_path).await;
 
         Ok(())
     }
 
-    fn add_new_connexion(&mut self) {
-        let mut number_of_connexion = self.numbers_of_connexion.lock().unwrap();
+    async fn add_new_connexion(&mut self) {
+        let mut number_of_connexion = self.numbers_of_connexion.lock().await;
         *number_of_connexion = number_of_connexion.saturating_add(1);
     }
 
-    fn update_history(
+    async fn update_history(
         filename: String,
         size: u64,
         history_path: PathBuf,
@@ -109,15 +111,17 @@ impl Server {
 
         let file_exist = history_path.exists();
         let mut file = open_file_append(&history_path.to_string_lossy().to_owned(), file_exist)
+            .await
             .map_err(|e| FileVaultError::FileOpeningError(e.to_string()))?;
 
         add_line_in_file(&mut file, entry.bytes().collect())
+            .await
             .map_err(|e| FileVaultError::FileWritingError(e.to_string()))?;
 
         Ok(())
     }
 
-    fn write_data(
+    async fn write_data(
         reader: &mut BufReader<TcpStream>,
         file: &mut fs::File,
         data_size: u64,
@@ -130,13 +134,14 @@ impl Server {
             let to_read = usize::min(remaining as usize, chunk.len());
             let read_bytes = reader
                 .read(&mut chunk[..to_read])
+                .await
                 .map_err(|_| FileVaultError::MissingPayload)?;
 
             if read_bytes == 0 {
                 return Err(FileVaultError::MissingPayload);
             }
 
-            file.write_all(&chunk[..read_bytes])
+            file.write_all(&chunk[..read_bytes]).await
                 .map_err(|e| FileVaultError::FileWritingError(e.to_string()))?;
             hasher.update(&chunk[..read_bytes]);
             remaining -= read_bytes as u64;
@@ -148,48 +153,56 @@ impl Server {
 
         let mut received_hash = [0u8; 32];
         reader
-            .read_exact(&mut received_hash)
+            .read_exact(&mut received_hash).await
             .map_err(|_| FileVaultError::MissingPayload)?;
 
         if received_hash != computed_hash {
             return Err(FileVaultError::HashMismatch);
         }
 
-        file.flush()
+        file.flush().await
             .map_err(|e| FileVaultError::FileWritingError(e.to_string()))?;
         Ok(())
     }
 
     pub fn listening(&mut self, timeout: Duration) -> Result<(), FileVaultError> {
-        let listener = TcpListener::bind(self.get_adress())
-            .map_err(|e| FileVaultError::ConnectionError(e.to_string()))?;
-        listener
-            .set_nonblocking(true)
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
             .map_err(|e| FileVaultError::ConnectionError(e.to_string()))?;
 
-        let mut last_activity = Instant::now();
+        runtime.block_on(self.listening_async(timeout))
+    }
+
+    pub async fn listening_async(&mut self, timeout: Duration) -> Result<(), FileVaultError> {
+        let listener = TcpListener::bind(self.get_adress())
+            .await
+            .map_err(|e| FileVaultError::ConnectionError(e.to_string()))?;
+
+        let mut inactivity_deadline = Instant::now() + timeout;
 
         println!("[SERVER]: Listening on port {}", self.port);
 
         loop {
-            match listener.accept() {
-                Ok((stream, _)) => {
-                    last_activity = Instant::now();
-                    self.add_new_connexion();
-                    let storage_root = self.storage_root.clone();
-                    let history_path = self.history_path.clone();
-                    std::thread::spawn(move || Self::manage_customer(stream, storage_root, history_path));
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    if last_activity.elapsed() >= timeout {
-                        break;
-                    }
+            tokio::select! {
+                accept_result = listener.accept() => {
+                    match accept_result {
+                        Ok((stream, _)) => {
+                            inactivity_deadline = Instant::now() + timeout;
+                            self.add_new_connexion().await;
+                            let storage_root = self.storage_root.clone();
+                            let history_path = self.history_path.clone();
 
-                    std::thread::sleep(ACCEPT_POLL_INTERVAL);
+                            tokio::spawn(async move {
+                                let _ = Self::manage_customer(stream, storage_root, history_path).await;
+                            });
+                        }
+                        Err(e) => {
+                            return Err(FileVaultError::ConnectionError(e.to_string()));
+                        }
+                    }
                 }
-                Err(e) => {
-                    return Err(FileVaultError::ConnectionError(e.to_string()));
-                }
+                _ = sleep_until(inactivity_deadline) => break,
             }
         }
 

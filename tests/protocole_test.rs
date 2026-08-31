@@ -31,22 +31,22 @@ fn test_packet_to_byte() {
 
 }
 
-#[test]
-fn test_bytes_to_packet_sucess() {
+#[tokio::test]
+async fn test_bytes_to_packet_sucess() {
     let mut bytes = Vec::new();
     bytes.extend_from_slice(("test1".len() as u32).to_be_bytes().as_slice());
     bytes.extend_from_slice("test1".as_bytes());
     bytes.extend_from_slice((50u64).to_be_bytes().as_slice());
 
     let mut cursor = Cursor::new(bytes);
-    let packet = Packet::from_bytes(&mut cursor).unwrap();
+    let packet = Packet::from_bytes(&mut cursor).await.unwrap();
 
     assert_eq!("test1".to_string(), packet.get_name());
     assert_eq!(50, packet.data_size());
 }
 
-#[test]
-fn test_bytes_to_packet_fails() {
+#[tokio::test]
+async fn test_bytes_to_packet_fails() {
     let mut bytes = Vec::new();
     bytes.extend_from_slice(("test1".len() as u16).to_be_bytes().as_slice());
     bytes.extend_from_slice("test1".as_bytes());
@@ -54,7 +54,7 @@ fn test_bytes_to_packet_fails() {
 
     let mut cursor = Cursor::new(bytes);
     
-    let get_packet = Packet::from_bytes(&mut cursor);
+    let get_packet = Packet::from_bytes(&mut cursor).await;
 
     assert!(get_packet.is_err());
 

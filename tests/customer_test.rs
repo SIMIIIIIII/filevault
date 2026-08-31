@@ -1,12 +1,15 @@
-use std::{
+use tokio::{
     fs,
-    io::{BufReader, Read},
+    io::{AsyncReadExt},
     net::TcpListener,
-    path::Path,
+    time::{Duration, sleep},
+};
+
+use std::{
     process,
+    path::Path,
     sync::atomic::{AtomicU64, Ordering},
-    thread::sleep,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{SystemTime, UNIX_EPOCH}
 };
 
 use file_vault::{
@@ -25,42 +28,38 @@ const PORT_SEND_FAILS: u64 = 8094u64;
 const PORT_SEND_SUCCESS: u64 = 8095u64;
 const PORT_SEND_SUCCESS_ROOT: u64 = 8096u64;
 
-fn start_server(address: &str) {
-    let get_listener = TcpListener::bind(address);
-    assert!(get_listener.is_ok());
+async fn start_server(address: &str) {
+    let listener = TcpListener::bind(address)
+        .await
+        .expect("unable to bind listener");
 
-    let listener = get_listener.unwrap();
-
-    for stream in listener.incoming() {
-        match stream {
-            Ok(_) => {
+    loop {
+        match listener.accept().await {
+            Ok((_stream, _address)) => {
                 break;
             }
-            Err(_) => { /* connection failed */ }
+            Err(_) => {
+            }
         }
     }
 }
 
-fn start_server_for_send_success(address: &str) {
-    let get_listener = TcpListener::bind(address);
-    assert!(get_listener.is_ok());
+async fn start_server_for_send_success(address: &str) {
+    let listener = TcpListener::bind(address).await.unwrap();
+    let (stream, _) = listener.accept().await.unwrap();
+    let mut reader = tokio::io::BufReader::new(stream);
 
-    let listener = get_listener.unwrap();
-    let get_stream = listener.accept();
-    assert!(get_stream.is_ok());
+    let packet = Packet::from_bytes(&mut reader).await.unwrap();
 
-    let (stream, _) = get_stream.unwrap();
-    let mut reader = BufReader::new(stream);
+    let mut payload = vec![0_u8; packet.data_size() as usize];
+    AsyncReadExt::read_exact(&mut reader, &mut payload)
+        .await
+        .unwrap();
 
-    let packet = Packet::from_bytes(&mut reader);
-    assert!(packet.is_ok());
-    let packet = packet.unwrap();
-
-    let mut payload = vec![0u8; packet.data_size() as usize];
-    assert!(reader.read_exact(&mut payload).is_ok());
-
-    let mut hash = [0u8; 32];
-    assert!(reader.read_exact(&mut hash).is_ok());
+    let mut hash = [0_u8; 32];
+    AsyncReadExt::read_exact(&mut reader, &mut hash)
+        .await
+        .unwrap();
 }
 
 fn get_file_name() -> String {
@@ -93,21 +92,21 @@ fn get_path(filename: String, root: String) -> String {
         .into_owned()
 }
 
-fn create_and_fill_file(filename: String) {
+async fn create_and_fill_file(filename: String) {
 
-    let get_file = open_file_write(filename.as_str(), false);
+    let get_file = open_file_write(filename.as_str(), false).await;
     assert!(get_file.is_ok());
 
     let mut file = get_file.unwrap();
     let bytes: Vec<u8> = "test".bytes().collect();
 
-    assert!(write_in_file(&mut file, bytes.clone()).is_ok());
+    assert!(write_in_file(&mut file, bytes.clone()).await.is_ok());
     drop(file);
 }
 
-#[test]
-fn test_create_customer_without_connexion() {
-    let get_customer = Customer::from(HOST.to_string(), PORT_WITHOUT_CONNEXION);
+#[tokio::test]
+async fn test_create_customer_without_connexion() {
+    let get_customer = Customer::from(HOST.to_string(), PORT_WITHOUT_CONNEXION).await;
     assert!(get_customer.is_ok());
 
     let customer = get_customer.unwrap();
@@ -118,17 +117,17 @@ fn test_create_customer_without_connexion() {
     assert_eq!(PORT_WITHOUT_CONNEXION, customer.get_port())
 }
 
-#[test]
-fn test_create_customer_with_connexion() {
+#[tokio::test]
+async fn test_create_customer_with_connexion() {
     let address = format!("{HOST}:{PORT_WITH_CONNEXION}");
     let server_address = address.clone();
-    let thread = std::thread::spawn(move || {
-        start_server(&server_address);
+    let thread = tokio::spawn(async move {
+        start_server(&server_address).await;
     });
 
-    sleep(Duration::from_millis(100));
+    sleep(Duration::from_millis(100)).await;
 
-    let get_customer = Customer::from(HOST.to_string(), PORT_WITH_CONNEXION);
+    let get_customer = Customer::from(HOST.to_string(), PORT_WITH_CONNEXION).await;
     assert!(get_customer.is_ok());
 
     let customer = get_customer.unwrap();
@@ -136,12 +135,12 @@ fn test_create_customer_with_connexion() {
     assert!(customer.is_connected());
     assert_eq!(address, customer.get_addres());
 
-    let _ = thread.join().unwrap();
+    let _ = thread.await.expect("server task panicked");
 }
 
-#[test]
-fn test_custmer_connexion_sucess() {
-    let get_customer = Customer::from(HOST.to_string(), PORT_CONNEXION_SUCESS);
+#[tokio::test]
+async fn test_custmer_connexion_sucess() {
+    let get_customer = Customer::from(HOST.to_string(), PORT_CONNEXION_SUCESS).await;
     assert!(get_customer.is_ok());
 
     let mut customer = get_customer.unwrap();
@@ -151,21 +150,21 @@ fn test_custmer_connexion_sucess() {
 
     let address = format!("{HOST}:{PORT_CONNEXION_SUCESS}");
     let server_address = address.clone();
-    let thread = std::thread::spawn(move || {
-        start_server(&server_address);
+    let thread = tokio::spawn(async move {
+        start_server(&server_address).await;
     });
 
-    sleep(Duration::from_millis(100));
+    sleep(Duration::from_millis(100)).await;
 
-    assert!(customer.connexion().is_ok());
+    assert!(customer.connexion().await.is_ok());
     assert!(customer.is_connected());
 
-    let _ = thread.join().unwrap();
+    let _ = thread.await.expect("server task panicked");
 }
 
-#[test]
-fn test_custmer_connexion_fails() {
-    let get_customer = Customer::from(HOST.to_string(), PORT_CONNEXION_FAILS);
+#[tokio::test]
+async fn test_custmer_connexion_fails() {
+    let get_customer = Customer::from(HOST.to_string(), PORT_CONNEXION_FAILS).await;
     assert!(get_customer.is_ok());
 
     let mut customer = get_customer.unwrap();
@@ -173,44 +172,44 @@ fn test_custmer_connexion_fails() {
     assert!(!customer.is_connected());
     assert_eq!(format!("{HOST}:{PORT_CONNEXION_FAILS}"), customer.get_addres());
 
-    assert!(customer.connexion().is_err());
+    assert!(customer.connexion().await.is_err());
     assert!(!customer.is_connected());
 }
 
-#[test]
-fn test_send_packet_fails_for_connexion() {
-    let get_customer = Customer::from(HOST.to_string(), PORT_SEND_FAILS);
+#[tokio::test]
+async fn test_send_packet_fails_for_connexion() {
+    let get_customer = Customer::from(HOST.to_string(), PORT_SEND_FAILS).await;
     assert!(get_customer.is_ok());
 
     let mut customer = get_customer.unwrap();
 
     let filename = get_file_name();
 
-    create_and_fill_file(filename.clone());
+    create_and_fill_file(filename.clone()).await;
 
-    let get_file = open_file_read(filename.clone());
+    let get_file = open_file_read(filename.clone()).await;
     assert!(get_file.is_ok());
     
 
-    let get_sent = customer.send_file(filename.clone(), None);
-    let _ = fs::remove_file(filename);
+    let get_sent = customer.send_file(filename.clone(), None).await;
+    let _ = fs::remove_file(filename).await;
     
     assert!(get_sent.is_err());
 
     assert!(get_sent.unwrap_err().to_string().contains("TcpStream connection Error:"));
 }
 
-#[test]
-fn test_send_packet_success() {
+#[tokio::test]
+async fn test_send_packet_success() {
     let address = format!("{HOST}:{PORT_SEND_SUCCESS}");
     let server_address = address.clone();
-    let thread = std::thread::spawn(move || {
-        start_server_for_send_success(&server_address);
+    let thread = tokio::spawn(async move {
+        start_server_for_send_success(&server_address).await;
     });
 
-    sleep(Duration::from_millis(100));
+    sleep(Duration::from_millis(100)).await;
 
-    let get_customer = Customer::from(HOST.to_string(), PORT_SEND_SUCCESS);
+    let get_customer = Customer::from(HOST.to_string(), PORT_SEND_SUCCESS).await;
     assert!(get_customer.is_ok());
 
     let mut customer = get_customer.unwrap();
@@ -218,31 +217,31 @@ fn test_send_packet_success() {
 
     let filename = get_file_name();
 
-    create_and_fill_file(filename.clone());
+    create_and_fill_file(filename.clone()).await;
 
-    let get_file = open_file_read(filename.clone());
+    let get_file = open_file_read(filename.clone()).await;
     assert!(get_file.is_ok());
     
 
-    let get_sent = customer.send_file(filename.clone(), None);
-    let _ = fs::remove_file(filename);
+    let get_sent = customer.send_file(filename.clone(), None).await;
+    let _ = fs::remove_file(filename).await;
     assert!(get_sent.is_ok());
 
-    let _ = thread.join().unwrap();
+    let _ = thread.await.expect("server task panicked");
 
 }
 
-#[test]
-fn test_send_packet_with_root_sucess() {
+#[tokio::test]
+async fn test_send_packet_with_root_sucess() {
     let address = format!("{HOST}:{PORT_SEND_SUCCESS_ROOT}");
     let server_address = address.clone();
-    let thread = std::thread::spawn(move || {
-        start_server_for_send_success(&server_address);
+    let thread = tokio::spawn(async move {
+        start_server_for_send_success(&server_address).await;
     });
 
-    sleep(Duration::from_millis(100));
+    sleep(Duration::from_millis(100)).await;
 
-    let get_customer = Customer::from(HOST.to_string(), PORT_SEND_SUCCESS_ROOT);
+    let get_customer = Customer::from(HOST.to_string(), PORT_SEND_SUCCESS_ROOT).await;
     assert!(get_customer.is_ok());
 
     let mut customer = get_customer.unwrap();
@@ -251,15 +250,15 @@ fn test_send_packet_with_root_sucess() {
     let filename = get_file_name_brute();
     let file_path = get_path(filename.clone(), "tests".to_string());
 
-    create_and_fill_file(file_path.clone());
+    create_and_fill_file(file_path.clone()).await;
 
-    let get_file = open_file_read(file_path.clone());
+    let get_file = open_file_read(file_path.clone()).await;
     assert!(get_file.is_ok());
     
 
-    let get_sent = customer.send_file(filename.clone(), Some("tests".to_string()));
-    let _ = fs::remove_file(file_path.clone());
+    let get_sent = customer.send_file(filename.clone(), Some("tests".to_string())).await;
+    let _ = fs::remove_file(file_path.clone()).await;
     assert!(get_sent.is_ok());
 
-    let _ = thread.join().unwrap();
+    let _ = thread.await.expect("server task panicked");
 }

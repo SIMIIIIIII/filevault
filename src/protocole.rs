@@ -1,4 +1,4 @@
-use std::{io::{Read}};
+use tokio::io::AsyncReadExt;
 
 use crate::files_vault_errors::FileVaultError;
 const MAX_NAME_SIZE: u32 = 4096;
@@ -22,9 +22,12 @@ impl Packet {
         }
     }
 
-    pub fn from_bytes<R: Read>(buffer: &mut R) -> Result<Self, FileVaultError> {
+    pub async fn from_bytes<R>(buffer: &mut R) -> Result<Self, FileVaultError>
+    where 
+        R: AsyncReadExt + Unpin
+    {
         let mut get_name_size = [0u8; 4];
-        buffer.read_exact(&mut get_name_size)
+        buffer.read_exact(&mut get_name_size).await
             .map_err(|_| FileVaultError::PacketCorrupted)?;
         let name_size = u32::from_be_bytes(get_name_size);
 
@@ -33,13 +36,13 @@ impl Packet {
         }
 
         let mut get_name = vec![0u8; name_size as usize];
-        buffer.read_exact(get_name.as_mut_slice())
+        buffer.read_exact(get_name.as_mut_slice()).await
             .map_err(|_| FileVaultError::PacketCorrupted)?;
         let name = String::from_utf8(get_name)
             .map_err(|_| FileVaultError::IncorrectDataType)?;
 
         let mut get_data_size = [0u8; 8];
-        buffer.read_exact(&mut get_data_size)
+        buffer.read_exact(&mut get_data_size).await
             .map_err(|_| FileVaultError::PacketCorrupted)?;
         let data_size = u64::from_be_bytes(get_data_size);
 

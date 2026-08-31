@@ -20,14 +20,14 @@ fn test_parse_runtime_mode() {
 	assert_eq!(vec!["localhost".to_string(), "8080".to_string()], args);
 }
 
-#[test]
-fn test_ensure_runtime_directories_in_test_mode() {
+#[tokio::test]
+async fn test_ensure_runtime_directories_in_test_mode() {
 	let (log_directory, server_directory) = runtime_directories(RuntimeMode::Test);
 
 	let _ = fs::remove_dir_all(&log_directory);
 	let _ = fs::remove_dir_all(&server_directory);
 
-	assert!(ensure_runtime_directories(RuntimeMode::Test).is_ok());
+	assert!(ensure_runtime_directories(RuntimeMode::Test).await.is_ok());
 	assert!(Path::new(&log_directory).exists());
 	assert!(Path::new(&server_directory).exists());
 

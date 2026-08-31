@@ -1,5 +1,11 @@
+use tokio::{
+    fs,
+    io::{self, AsyncWriteExt, BufReader, AsyncBufReadExt},
+    time::{Duration, sleep},
+};
+
 use std::{
-    fs, io::{self, Write}, path::{Path, PathBuf}, thread, time::Duration,
+    path::{Path, PathBuf}
 };
 
 use crate::{
@@ -49,16 +55,16 @@ pub fn runtime_directories(runtime_mode: RuntimeMode) -> (PathBuf, PathBuf) {
     }
 }
 
-pub fn ensure_runtime_directories(runtime_mode: RuntimeMode) -> Result<(), String> {
+pub async fn ensure_runtime_directories(runtime_mode: RuntimeMode) -> Result<(), String> {
     let (log_directory, server_directory) = runtime_directories(runtime_mode);
 
-    fs::create_dir_all(&log_directory).map_err(|e| e.to_string())?;
-    fs::create_dir_all(&server_directory).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&log_directory).await.map_err(|e| e.to_string())?;
+    fs::create_dir_all(&server_directory).await.map_err(|e| e.to_string())?;
 
     Ok(())
 }
 
-pub fn run_legacy_mode(args: Vec<String>, runtime_mode: Option<RuntimeMode>) -> Result<(), String> {
+pub async  fn run_legacy_mode(args: Vec<String>, runtime_mode: Option<RuntimeMode>) -> Result<(), String> {
     let args = strip_method_flag(args);
 
     match args.first().map(|value| value.as_str()) {
@@ -71,17 +77,17 @@ pub fn run_legacy_mode(args: Vec<String>, runtime_mode: Option<RuntimeMode>) -> 
                 runtime_mode,
                 remaining,
                 true
-            )
+            ).await
         }
         Some("GET") => {
             let (host, port, _) = parse_host_port_from_slice(&args[1..])?;
-            run_get_mode(host, port, runtime_mode)
+            run_get_mode(host, port, runtime_mode).await
         }
         _ => Err(usage()),
     }
 }
 
-fn run_post_mode(
+async fn run_post_mode(
     host: String,
     port: u64,
     runtime_mode: Option<RuntimeMode>,
@@ -96,14 +102,14 @@ fn run_post_mode(
         runtime_mode
     );
 
-    thread::sleep(STARTUP_DELAY);
+    sleep(STARTUP_DELAY).await;
 
-    let mut customer = connect_customer_with_retry(&host, port)?;
-    customer.send_file(filename, root).map_err(map_error)?;
+    let mut customer = connect_customer_with_retry(&host, port).await?;
+    customer.send_file(filename, root).await.map_err(map_error)?;
 
     if join_server {
         server_handle
-            .join()
+            .await
             .map_err(|_| "server thread panicked".to_string())?
             .map_err(map_error)?;
     }
@@ -111,7 +117,7 @@ fn run_post_mode(
     Ok(())
 }
 
-pub fn run_get_mode(
+pub async fn run_get_mode(
     host: String,
     port: u64,
     runtime_mode: Option<RuntimeMode>
@@ -122,29 +128,36 @@ pub fn run_get_mode(
         LISTENER_TIMEOUT,
         runtime_mode
     );
-    let mut customer = connect_customer_with_retry(&host, port)?;
+    let mut customer = connect_customer_with_retry(&host, port).await?;
 
-    interactive_loop(&mut customer, runtime_mode)?;
+    interactive_loop(&mut customer, runtime_mode).await?;
 
     drop(server_handle);
     Ok(())
 }
 
-fn interactive_loop(
+async fn interactive_loop(
     customer: &mut Customer,
     runtime_mode: Option<RuntimeMode>
 ) -> Result<(), String> {
     let stdin = io::stdin();
-    let mut input = String::new();
+    let mut input = BufReader::new(stdin);
 
     loop {
         print!("filevault> ");
-        io::stdout().flush().map_err(|e| e.to_string())?;
+        io::stdout().flush().await.map_err(|e| e.to_string())?;
 
-        input.clear();
-        stdin.read_line(&mut input).map_err(|e| e.to_string())?;
+        let mut line = String::new();
+        let bytes_read = input
+            .read_line(&mut line)
+            .await
+            .map_err(|error| error.to_string())?;
 
-        let trimmed = input.trim();
+        if bytes_read == 0 {
+            break;
+        }
+
+        let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
         }
@@ -157,7 +170,7 @@ fn interactive_loop(
         match tokens.first().map(|value| value.to_ascii_lowercase()).as_deref() {
             Some("exit") => break,
             Some("reconnect") => {
-                reconnect_customer(customer, runtime_mode)?;
+                reconnect_customer(customer, runtime_mode).await?;
             }
             Some("help") if tokens.get(1).map(|value| value.eq_ignore_ascii_case("prod")).unwrap_or(false) => {
                 print_production_help();
@@ -167,7 +180,7 @@ fn interactive_loop(
             }
             Some("post") => {
                 let (filename, root) = parse_post_request(tokens.into_iter().skip(1).collect())?;
-                customer.send_file(filename, root).map_err(map_error)?;
+                customer.send_file(filename, root).await.map_err(map_error)?;
             }
             _ => {
                 print_interactive_help();
@@ -178,11 +191,11 @@ fn interactive_loop(
     Ok(())
 }
 
-fn reconnect_customer(
+async fn reconnect_customer(
     customer: &mut Customer,
     runtime_mode: Option<RuntimeMode>
 ) -> Result<(), String> {
-    if customer.connexion().is_ok() {
+    if customer.connexion().await.is_ok() {
         return Ok(());
     }
 
@@ -192,15 +205,15 @@ fn reconnect_customer(
         LISTENER_TIMEOUT,
         runtime_mode
     );
-    thread::sleep(STARTUP_DELAY);
-    customer.connexion().map_err(map_error)
+    sleep(STARTUP_DELAY).await;
+    customer.connexion().await.map_err(map_error)
 }
 
-fn connect_customer_with_retry(host: &str, port: u64) -> Result<Customer, String> {
+async fn connect_customer_with_retry(host: &str, port: u64) -> Result<Customer, String> {
     let mut last_error = None;
 
     for attempt in 0..CONNECT_RETRIES {
-        let customer = Customer::from(host.to_string(), port).map_err(map_error)?;
+        let customer = Customer::from(host.to_string(), port).await.map_err(map_error)?;
 
         if customer.is_connected() {
             return Ok(customer);
@@ -209,7 +222,7 @@ fn connect_customer_with_retry(host: &str, port: u64) -> Result<Customer, String
         last_error = Some(format!("unable to connect to {host}:{port}"));
 
         if attempt + 1 < CONNECT_RETRIES {
-            thread::sleep(CONNECT_RETRY_DELAY);
+            sleep(CONNECT_RETRY_DELAY).await;
         }
     }
 
@@ -221,22 +234,25 @@ fn spawn_server(
     port: u64,
     timeout: Duration,
     runtime_mode: Option<RuntimeMode>
-) -> thread::JoinHandle<Result<(), FileVaultError>> {
-    thread::spawn(move || {
-        let mut server = if runtime_mode.is_none() {
-            Server::from(host, port)
-        } else {
-            let (log_root, storage_root) = runtime_directories(RuntimeMode::Test);
-            Server::from_with_paths(
-                host,
-                port,
-                PathBuf::from(storage_root),
-                PathBuf::from(get_history_test(log_root))
-            )
-        };
-        server.listening(timeout)
+) -> tokio::task::JoinHandle<Result<(), FileVaultError>> {
+
+    let mut server = if runtime_mode.is_none() {
+        Server::from(host, port)
+    } else {
+        let (log_root, storage_root) = runtime_directories(RuntimeMode::Test);
+        Server::from_with_paths(
+            host,
+            port,
+            PathBuf::from(storage_root),
+            PathBuf::from(get_history_test(log_root))
+        )
+    };
+
+    tokio::spawn(async move {
+        server.listening_async(timeout).await
     })
 }
+
 
 fn strip_method_flag(args: Vec<String>) -> Vec<String> {
     if matches!(
