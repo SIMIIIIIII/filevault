@@ -130,15 +130,33 @@ pub async fn run_get_mode(
     );
     let mut customer = connect_customer_with_retry(&host, port).await?;
 
-    interactive_loop(&mut customer, runtime_mode).await?;
+    interactive_loop(&mut customer, runtime_mode, true).await?;
 
     drop(server_handle);
     Ok(())
 }
 
+/// Connects to a remote, already running server; never spawns a local one (for the standalone client binary).
+pub async fn run_client_get_mode(host: String, port: u64) -> Result<(), String> {
+    let mut customer = connect_customer_with_retry(&host, port).await?;
+    interactive_loop(&mut customer, None, false).await
+}
+
+/// Connects to a remote, already running server and sends a single file (for the standalone client binary).
+pub async fn run_client_post_mode(
+    host: String,
+    port: u64,
+    remaining: Vec<String>
+) -> Result<(), String> {
+    let (filename, root) = parse_post_request(remaining)?;
+    let mut customer = connect_customer_with_retry(&host, port).await?;
+    customer.send_file(filename, root).await.map_err(map_error)
+}
+
 async fn interactive_loop(
     customer: &mut Customer,
-    runtime_mode: Option<RuntimeMode>
+    runtime_mode: Option<RuntimeMode>,
+    manage_server: bool
 ) -> Result<(), String> {
     let stdin = io::stdin();
     let mut input = BufReader::new(stdin);
@@ -170,7 +188,7 @@ async fn interactive_loop(
         match tokens.first().map(|value| value.to_ascii_lowercase()).as_deref() {
             Some("exit") => break,
             Some("reconnect") => {
-                reconnect_customer(customer, runtime_mode).await?;
+                reconnect_customer(customer, runtime_mode, manage_server).await?;
             }
             Some("help") if tokens.get(1).map(|value| value.eq_ignore_ascii_case("prod")).unwrap_or(false) => {
                 print_production_help();
@@ -193,19 +211,23 @@ async fn interactive_loop(
 
 async fn reconnect_customer(
     customer: &mut Customer,
-    runtime_mode: Option<RuntimeMode>
+    runtime_mode: Option<RuntimeMode>,
+    manage_server: bool
 ) -> Result<(), String> {
     if customer.connexion().await.is_ok() {
         return Ok(());
     }
 
-    let _server_handle = spawn_server(
-        customer.get_host(),
-        customer.get_port(),
-        LISTENER_TIMEOUT,
-        runtime_mode
-    );
-    sleep(STARTUP_DELAY).await;
+    if manage_server {
+        let _server_handle = spawn_server(
+            customer.get_host(),
+            customer.get_port(),
+            LISTENER_TIMEOUT,
+            runtime_mode
+        );
+        sleep(STARTUP_DELAY).await;
+    }
+
     customer.connexion().await.map_err(map_error)
 }
 

@@ -9,7 +9,8 @@ pub enum FileVaultError {
     FileOpeningError(String),
     TcpSendingError(String),
     FileWritingError(String),
-    PacketCorrupted
+    PacketCorrupted,
+    DatabaseError(String)
 }
 
 impl fmt::Display for FileVaultError {
@@ -22,7 +23,8 @@ impl fmt::Display for FileVaultError {
             Self::FileOpeningError(e) => write!(f, "Error while Opening file : {e}"),
             Self::FileWritingError(e) => write!(f, "Error while writing in file : {e}"),
             Self::TcpSendingError(e) => write!(f, "TcpStream sending error: {e}"),
-            Self::PacketCorrupted => write!(f, "The packet is corrupted")
+            Self::PacketCorrupted => write!(f, "The packet is corrupted"),
+            Self::DatabaseError(e) => write!(f, "Database error: {e}"),
         }
     }
 }

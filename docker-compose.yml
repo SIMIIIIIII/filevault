@@ -1,0 +1,69 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: filevault-server
+    ports:
+      - "8080:8080"
+    volumes:
+      - server_files:/app/server_files
+      - log_files:/app/log_files
+    environment:
+      DATABASE_URL: postgresql://filevault:changeme@db:5432/filevault
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - filevault-net
+    command: ["::", "8080"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  customer:
+    build:
+      context: .
+      dockerfile: Dockerfile.customer
+    depends_on:
+      - server
+    networks:
+      - filevault-net
+    command: ["server", "8080", "send","--filename", "README.md",]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  db:
+    image: postgres:16
+    container_name: filevault-db
+    environment:
+      POSTGRES_USER: filevault
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: filevault
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - filevault-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U filevault -d filevault"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+networks:
+    filevault-net:
+      driver: bridge
+volumes:
+  server_files:
+  log_files:
+  db_data:

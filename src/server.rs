@@ -3,7 +3,7 @@ use tokio::{
     time::{Instant, sleep_until, Duration},
     fs,
     io::{AsyncWriteExt, BufReader, AsyncReadExt},
-    sync::Mutex
+    sync::Mutex,
 };
 
 use std::{
@@ -11,9 +11,11 @@ use std::{
 };
 
 use crate::{
-    files::{add_line_in_file, open_file_append, open_file_write},
-    files_vault_errors::FileVaultError,
-    protocole::Packet,
+    db::{connexion_db, insert_file}, files::{
+        add_line_in_file,
+        open_file_append,
+        open_file_write
+    }, files_vault_errors::FileVaultError, protocole::Packet,
 };
 
 use chrono::Utc;
@@ -93,6 +95,14 @@ impl Server {
         Self::write_data(&mut reader, &mut file, packet.data_size()).await?;
         let _ = Self::update_history(packet.get_name(), packet.data_size(), history_path).await;
 
+        let pool = connexion_db()
+            .await
+            .map_err(|e| FileVaultError::DatabaseError(e.to_string()))?;
+
+        insert_file(pool, &packet.get_name(), packet.data_size())
+            .await
+            .map_err(|e| FileVaultError::DatabaseError(e.to_string()))?;
+
         Ok(())
     }
 
@@ -162,6 +172,7 @@ impl Server {
 
         file.flush().await
             .map_err(|e| FileVaultError::FileWritingError(e.to_string()))?;
+
         Ok(())
     }
 
@@ -205,6 +216,8 @@ impl Server {
                 _ = sleep_until(inactivity_deadline) => break,
             }
         }
+
+        
 
         Ok(())
     }

@@ -26,12 +26,13 @@ A lightweight Rust-based file transfer application using a TCP client/server arc
 2. Key Features
 3. Project Structure
 4. Requirements
-5. Setup
-6. Usage
-7. Testing
-8. Runtime Output
-9. Troubleshooting
-10. License
+5. Database Setup
+6. Docker Usage
+7. Local Usage
+8. Testing
+9. Runtime Output
+10. Troubleshooting
+11. License
 
 ## Overview
 
@@ -44,6 +45,7 @@ Core capabilities:
 - Use an interactive mode for multiple transfer commands.
 - Validate file integrity with SHA-256 checksums.
 - Track transfer history in log files.
+- Store received-file metadata in PostgreSQL.
 
 ## Key Features
 
@@ -64,11 +66,16 @@ Main source code is located at the repository root:
 - [src/protocole.rs](src/protocole.rs): packet serialization/deserialization.
 - [src/hashing.rs](src/hashing.rs): hashing helper for streamed payload writes.
 - [src/cli_helpers.rs](src/cli_helpers.rs): argument parsing and CLI helpers.
+- [src/db.rs](src/db.rs): PostgreSQL connection and file metadata queries.
+- [migrations](migrations): SQL database migrations.
+- [.sqlx](.sqlx): SQLx offline query metadata used for Docker builds.
 - [tests](tests): test suite.
 
 ## Requirements
 
-- Rust toolchain (rustc + cargo)
+- Rust 1.88 or later (rustc + cargo)
+- Docker and Docker Compose for the containerized setup
+- `sqlx-cli` for running database migrations and regenerating SQLx metadata
 - Linux, macOS, or Windows
 - Local networking access for host/port communication
 
@@ -78,11 +85,66 @@ Check your toolchain:
 cargo --version
 ```
 
-## Setup
+Install the SQLx CLI when using the database from the host:
+
+```bash
+cargo install sqlx-cli --no-default-features --features postgres
+```
+
+## Database Setup
+
+Docker Compose starts PostgreSQL 16 with these development defaults:
+
+- Host connection: `postgresql://filevault:changeme@localhost:5433/filevault`
+- Container connection: `postgresql://filevault:changeme@db:5432/filevault`
+
+Create a local `.env` file for commands run from the host:
+
+```env
+DATABASE_URL=postgresql://filevault:changeme@localhost:5433/filevault
+```
+
+Start the database and apply migrations:
+
+```bash
+docker compose up -d --wait db
+set -a
+source .env
+set +a
+sqlx migrate run
+```
+
+The `sqlx::query!` and `sqlx::query_as!` macros validate SQL at compile time. After changing a query or a migration, refresh the committed offline metadata:
+
+```bash
+set -a
+source .env
+set +a
+cargo sqlx prepare -- --all-targets
+```
+
+## Docker Usage
+
+Build and start the application stack:
+
+```bash
+docker compose up --build
+```
+
+The server listens on port `8080`. Docker supplies its `DATABASE_URL` automatically and waits for PostgreSQL to become healthy. The client sends `README.md` as an example, then exits. Stop the stack with:
+
+```bash
+docker compose down
+```
+
+## Local Usage
 
 From the repository root:
 
 ```bash
+set -a
+source .env
+set +a
 cargo build
 ```
 
@@ -272,6 +334,9 @@ History entries include timestamp, filename, and payload size in bytes.
 ## Troubleshooting
 
 - Connection failure: verify host/port and confirm no other process is using the same port.
+- `DATABASE_URL doit être définie`: load and export `.env` with `set -a; source .env; set +a` before running Cargo commands.
+- `set DATABASE_URL to use query macros online`: start the database and run `cargo sqlx prepare -- --all-targets`; Docker builds use the generated `.sqlx` cache.
+- `error communicating with database ... EOF`: confirm that PostgreSQL is healthy with `docker compose ps` and use port `5433` from the host, not `5432`.
 - File not found: verify filename and `--root` path.
 - Hash mismatch: payload was incomplete or corrupted, retry transfer.
 - No interactive response: run `help` in prompt to check accepted commands.

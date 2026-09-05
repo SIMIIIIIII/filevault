@@ -9,10 +9,19 @@ sha2 = "0.10"
 chrono = "0.4"
 tempfile = "3"
 tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "uuid"] }
 
 [[bin]]
 name = "bench_results_reader"
 path = "src/bench_results_reader.rs"
+
+[[bin]]
+name = "server"
+path = "src/bin/server.rs"
+
+[[bin]]
+name = "customer"
+path = "src/bin/customer.rs"
 
 [[bench]]
 name = "benchmark"
