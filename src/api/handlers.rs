@@ -294,3 +294,7 @@ pub async fn delete_file(
 
     Ok(StatusCode::OK)
 }
+
+pub async fn health_check() -> Json<serde_json::Value> {
+    Json(serde_json::json!({ "status": "ok", "tls": true }))
+}
