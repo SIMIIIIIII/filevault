@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE files SET nb_downloads = nb_downloads + 1 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "94912c2939e09da31ec1adb4e863b9a0f3972afe2a6cf73691c0e575ab2377b2"
+}

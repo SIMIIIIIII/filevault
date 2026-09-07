@@ -95,7 +95,7 @@ impl Server {
         Self::write_data(&mut reader, &mut file, packet.data_size()).await?;
         let _ = Self::update_history(packet.get_name(), packet.data_size(), history_path).await;
 
-        let pool = connexion_db()
+        let pool = connexion_db(None)
             .await
             .map_err(|e| FileVaultError::DatabaseError(e.to_string()))?;
 

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, size\n        FROM files\n        ",
+  "query": "SELECT id, password FROM users WHERE email = $1",
   "describe": {
     "columns": [
       {
@@ -10,23 +10,19 @@
       },
       {
         "ordinal": 1,
-        "name": "name",
+        "name": "password",
         "type_info": "Text"
-      },
-      {
-        "ordinal": 2,
-        "name": "size",
-        "type_info": "Int8"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text"
+      ]
     },
     "nullable": [
-      false,
       false,
       false
     ]
   },
-  "hash": "7d8c1e537112354c0d700844c8bf89274a6ddb7f231408d82935dea1cdabbcde"
+  "hash": "b3de938995c744adfb9171880990e92f295faf8618cf0f5650d91c9067be6821"
 }

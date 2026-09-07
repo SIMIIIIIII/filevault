@@ -5,3 +5,4 @@ pub mod protocole;
 pub mod server;
 pub mod cli_helpers;
 pub mod db;
+pub mod api;

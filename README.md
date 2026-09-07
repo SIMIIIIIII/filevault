@@ -27,12 +27,13 @@ A lightweight Rust-based file transfer application using a TCP client/server arc
 3. Project Structure
 4. Requirements
 5. Database Setup
-6. Docker Usage
-7. Local Usage
-8. Testing
-9. Runtime Output
-10. Troubleshooting
-11. License
+6. REST API
+7. Docker Usage
+8. Local Usage
+9. Testing
+10. Runtime Output
+11. Troubleshooting
+12. License
 
 ## Overview
 
@@ -46,6 +47,7 @@ Core capabilities:
 - Validate file integrity with SHA-256 checksums.
 - Track transfer history in log files.
 - Store received-file metadata in PostgreSQL.
+- Expose a JWT-authenticated REST API (Axum) for registration, login, file upload/download, and statistics.
 
 ## Key Features
 
@@ -55,18 +57,20 @@ Core capabilities:
 - Interactive CLI mode with reconnect and inline help.
 - Isolated test runtime directories.
 - Unit and integration tests for critical modules.
+- Bearer-token authentication (JWT) for the REST API.
 
 ## Project Structure
 
 Main source code is located at the repository root:
 
-- [src/main.rs](src/main.rs): CLI entry point and runtime mode routing.
+- [src/main.rs](src/main.rs): CLI entry point and runtime mode routing (`server`, `api`, legacy modes).
 - [src/server.rs](src/server.rs): TCP listener, file receiving, hash validation, and logging.
 - [src/customer.rs](src/customer.rs): TCP client connection and file sending logic.
 - [src/protocole.rs](src/protocole.rs): packet serialization/deserialization.
 - [src/hashing.rs](src/hashing.rs): hashing helper for streamed payload writes.
 - [src/cli_helpers.rs](src/cli_helpers.rs): argument parsing and CLI helpers.
 - [src/db.rs](src/db.rs): PostgreSQL connection and file metadata queries.
+- [src/api](src/api): Axum REST API (routes, handlers, JWT auth middleware, app state).
 - [migrations](migrations): SQL database migrations.
 - [.sqlx](.sqlx): SQLx offline query metadata used for Docker builds.
 - [tests](tests): test suite.
@@ -102,6 +106,15 @@ Create a local `.env` file for commands run from the host:
 
 ```env
 DATABASE_URL=postgresql://filevault:changeme@localhost:5433/filevault
+DATABASE_URL_TEST=postgresql://filevault:changeme@localhost:5433/filevaulttest
+JWT_SECRET=<a random secret>
+JWT_SECRET_TEST=<a random secret for tests>
+```
+
+`JWT_SECRET` signs and validates the API's JWT tokens; generate one with the `key` binary:
+
+```bash
+cargo run --bin key
 ```
 
 Start the database and apply migrations:
@@ -123,6 +136,30 @@ set +a
 cargo sqlx prepare -- --all-targets
 ```
 
+## REST API
+
+The `api` binary mode exposes a JWT-authenticated REST API built with Axum. Locally:
+
+```bash
+set -a
+source .env
+set +a
+cargo run -- api ::1 8081
+```
+
+Routes:
+
+- `GET /health`: liveness check, no auth required.
+- `POST /auth/register`: create a user (`email`, `username`, `password`, `fullname`).
+- `POST /auth/login`: authenticate and receive a JWT (`{ "token": "..." }`).
+- `GET /files`: list the authenticated user's files.
+- `POST /files`: upload a file (multipart).
+- `GET /files/:id`: download a file by id.
+- `DELETE /files/:id`: delete a file by id.
+- `GET /stats`: aggregate statistics (total files, bytes, users).
+
+All routes under `/files` and `/stats` require an `Authorization: Bearer <token>` header obtained from `/auth/login`.
+
 ## Docker Usage
 
 Build and start the application stack:
@@ -131,7 +168,7 @@ Build and start the application stack:
 docker compose up --build
 ```
 
-The server listens on port `8080`. Docker supplies its `DATABASE_URL` automatically and waits for PostgreSQL to become healthy. The client sends `README.md` as an example, then exits. Stop the stack with:
+This starts four services: `db` (PostgreSQL), `server` (TCP file server on port `8080`), `api` (REST API on port `8081`), and `customer` (a one-shot client sending `README.md` to `server`). Docker supplies `DATABASE_URL` automatically for `server`/`api` and waits for PostgreSQL to become healthy; `JWT_SECRET` for the `api` service is read from the host environment/`.env` file. Stop the stack with:
 
 ```bash
 docker compose down
@@ -337,6 +374,8 @@ History entries include timestamp, filename, and payload size in bytes.
 - `DATABASE_URL doit être définie`: load and export `.env` with `set -a; source .env; set +a` before running Cargo commands.
 - `set DATABASE_URL to use query macros online`: start the database and run `cargo sqlx prepare -- --all-targets`; Docker builds use the generated `.sqlx` cache.
 - `error communicating with database ... EOF`: confirm that PostgreSQL is healthy with `docker compose ps` and use port `5433` from the host, not `5432`.
+- `[ERROR]: JWT_SECRET wasn't defined`: export `JWT_SECRET` (host) or set it in `docker-compose.yml`'s `api` service before starting the API.
+- `SQLX_OFFLINE=true but there is no cached data for this query`: a query changed but `.sqlx` wasn't refreshed; run `cargo sqlx prepare` against a live database and commit the updated `.sqlx` folder.
 - File not found: verify filename and `--root` path.
 - Hash mismatch: payload was incomplete or corrupted, retry transfer.
 - No interactive response: run `help` in prompt to check accepted commands.

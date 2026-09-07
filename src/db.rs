@@ -1,16 +1,24 @@
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use serde::Serialize;
 
-
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Debug, sqlx::FromRow, Serialize)]
 pub struct File {
-    pub id: i64,
+    pub id: i32,
     pub name: String,
     pub size: i64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub user_id: Option<i32>,
+    pub file_path: String,
+    pub sha256: String,
+    pub nb_downloads: i64
 }
 
-pub async fn connexion_db() -> Result<Pool<Postgres>, sqlx::Error> {
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("DATABASE_URL doit être définie");
+pub async fn connexion_db(url: Option<String>) -> Result<Pool<Postgres>, sqlx::Error> {
+    let database_url = match url {
+        Some(url) => url,
+        None => std::env::var("DATABASE_URL")
+            .expect("DATABASE_URL doit être définie"),
+    };
 
     PgPoolOptions::new()
         .max_connections(10)
@@ -20,7 +28,7 @@ pub async fn connexion_db() -> Result<Pool<Postgres>, sqlx::Error> {
 
 pub async fn get_all_files(pool: Pool<Postgres>) -> Result<Vec<File>, sqlx::Error> {
     sqlx::query_as!(File,
-        "SELECT id, name, size
+        "SELECT *
         FROM files
         "
     )

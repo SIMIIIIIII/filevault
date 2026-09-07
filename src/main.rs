@@ -15,7 +15,11 @@ use file_vault::{
         run_legacy_mode,
         runtime_directories,
         usage
-    }, server::Server
+    },
+    server::Server,
+    api,
+    db
+    
 };
 
 const LISTENER_TIMEOUT: Duration = Duration::from_secs(15 * 60);
@@ -38,6 +42,17 @@ async fn run() -> Result<(), String> {
     let first = args.next().ok_or_else(usage)?;
 
     match first.as_str() {
+        "api" => {
+            let (host, port) = parse_host_port(args.collect())?;
+            let pool = db::connexion_db(None)
+                .await
+                .map_err(|e| map_error(file_vault::files_vault_errors::FileVaultError::DatabaseError(e.to_string())))?;
+            let jwt_secret = env::var("JWT_SECRET")
+            .map_err(|_| "JWT_SECRET wasn't defined".to_string())?;
+            api::run(host, port, pool, jwt_secret)
+                .await
+                .map_err(|e| map_error(file_vault::files_vault_errors::FileVaultError::ConnectionError(e.to_string())))
+        }
         "server" => {
             let (host, port) = parse_host_port(args.collect())?;
             

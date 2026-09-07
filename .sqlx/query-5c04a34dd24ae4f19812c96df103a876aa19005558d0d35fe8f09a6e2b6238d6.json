@@ -1,0 +1,68 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO files (name, size, sha256, file_path, user_id)\n            VALUES ($1, $2, $3, $4, $5)\n            RETURNING id, name, size, created_at, user_id, file_path, sha256, nb_downloads\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "size",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "user_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "file_path",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "sha256",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "nb_downloads",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Text",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "5c04a34dd24ae4f19812c96df103a876aa19005558d0d35fe8f09a6e2b6238d6"
+}
