@@ -68,6 +68,22 @@ services:
       retries: 3
       start_period: 5s
 
+  cli:
+    build:
+      context: .
+      dockerfile: Dockerfile.cli
+    depends_on:
+      - api
+    networks:
+      - filevault-net
+    command: ["list",]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
   db:
     image: postgres:16
     container_name: filevault-db

@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 default-run = "file_vault"
 
+[workspace]
+members = ["filevault-cli"]
+
 [dependencies]
 sha2 = "0.10"
 tempfile = "3"
@@ -22,6 +25,7 @@ chrono = { version = "0.4", features = ["serde"] }
 rand = "0.8"
 base64 = "0.23.1"
 tokio-util = { version = "0.7.19", features = ["io"] }
+
 
 [[bin]]
 name = "bench_results_reader"

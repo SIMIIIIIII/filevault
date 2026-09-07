@@ -1,133 +1,187 @@
 # FileVault
 
 <p align="center">
-	<a href="#">
-		<img src="https://img.shields.io/badge/language-Rust-orange.svg" alt="Rust">
-	</a>
-	<a href="#">
-		<img src="https://img.shields.io/badge/protocol-TCP-blue.svg" alt="TCP">
-	</a>
-	<a href="#">
-		<img src="https://img.shields.io/badge/integrity-SHA--256-brightgreen.svg" alt="SHA-256">
-	</a>
-	<a href="#">
-		<img src="https://img.shields.io/badge/tests-Cargo_Test-success.svg" alt="Tests">
-	</a>
-	<a href="#">
-		<img src="https://img.shields.io/badge/status-Academic_Project-lightgrey.svg" alt="Status">
-	</a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/Rust-1.88%2B-orange?logo=rust" alt="Rust 1.88+" />
+  </a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/Protocol-TCP-blue" alt="TCP protocol" />
+  </a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/Storage-PostgreSQL-336791?logo=postgresql" alt="PostgreSQL" />
+  </a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/API-Axum%20%2B%20JWT-8b5cf6?logo=axum" alt="Axum + JWT" />
+  </a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/Container-Docker-2496ED?logo=docker" alt="Docker" />
+  </a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/Integrity-SHA--256-brightgreen" alt="SHA-256 integrity" />
+  </a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/Tests-Cargo_Test-success" alt="Cargo tests" />
+  </a>
 </p>
 
-A lightweight Rust-based file transfer application using a TCP client/server architecture, with built-in SHA-256 integrity verification and transfer history logging.
+FileVault is a Rust project for transferring files with a lightweight TCP protocol and a JWT-authenticated REST API. It stores file metadata in PostgreSQL, verifies payload integrity with SHA-256, and exposes both a server-side upload flow and a CLI client.
 
-## Table of Contents
+## Table of contents
 
 1. Overview
-2. Key Features
-3. Project Structure
+2. Features
+3. Project structure
 4. Requirements
-5. Database Setup
-6. REST API
-7. Docker Usage
-8. Local Usage
-9. Testing
-10. Runtime Output
-11. Troubleshooting
-12. License
+5. Quick start
+6. Environment configuration
+7. Database setup
+8. Running the TCP server
+9. Running the REST API
+10. Using the CLI
+11. Docker compose
+12. Testing
 
 ## Overview
 
-FileVault provides a simple but robust way to send files over TCP.
+The project contains two main interaction layers:
 
-Core capabilities:
+- a TCP server/client mode for direct file transfer
+- an Axum REST API for user authentication, file management, and statistics
 
-- Run a TCP server that receives file uploads.
-- Send files from a client to the server.
-- Use an interactive mode for multiple transfer commands.
-- Validate file integrity with SHA-256 checksums.
-- Track transfer history in log files.
-- Store received-file metadata in PostgreSQL.
-- Expose a JWT-authenticated REST API (Axum) for registration, login, file upload/download, and statistics.
+The data model persists file metadata such as name, size, uploader, and timestamps in PostgreSQL. Each uploaded file is also saved on disk and validated through SHA-256 checks before being accepted.
 
-## Key Features
+## Features
 
-- Binary transfer protocol for filename and payload metadata.
-- End-to-end integrity check (SHA-256 hash comparison).
-- Dedicated error types for networking, file I/O, and protocol issues.
-- Interactive CLI mode with reconnect and inline help.
-- Isolated test runtime directories.
-- Unit and integration tests for critical modules.
-- Bearer-token authentication (JWT) for the REST API.
+- TCP file upload between client and server
+- SHA-256 integrity verification on received payloads
+- PostgreSQL-backed file metadata storage
+- JWT authentication for the HTTP API
+- CLI client for login, upload, download, list, and stats
+- Interactive legacy mode for direct client/server transfer testing
+- Dockerized local stack for database, API, server, and client
+- Integration test suite for API and server behavior
 
-## Project Structure
+## Project structure
 
-Main source code is located at the repository root:
+```text
+.
+├── Cargo.toml
+├── docker-compose.yml
+├── Dockerfile.api
+├── Dockerfile.cli
+├── Dockerfile.customer
+├── Dockerfile.server
+├── Makefile
+├── README.md
+├── migrations/
+├── src/
+│   ├── api/
+│   ├── bin/
+│   ├── main.rs
+│   ├── server.rs
+│   ├── customer.rs
+│   ├── db.rs
+│   ├── files.rs
+│   ├── cli_helpers.rs
+│   ├── protocole.rs
+│   ├── hashing.rs
+│   └── ...
+├── filevault-cli/
+│   ├── Cargo.toml
+│   └── src/
+├── tests/
+├── log_files/
+├── server_files/
+└── docs/
+```
 
-- [src/main.rs](src/main.rs): CLI entry point and runtime mode routing (`server`, `api`, legacy modes).
-- [src/server.rs](src/server.rs): TCP listener, file receiving, hash validation, and logging.
-- [src/customer.rs](src/customer.rs): TCP client connection and file sending logic.
-- [src/protocole.rs](src/protocole.rs): packet serialization/deserialization.
-- [src/hashing.rs](src/hashing.rs): hashing helper for streamed payload writes.
-- [src/cli_helpers.rs](src/cli_helpers.rs): argument parsing and CLI helpers.
-- [src/db.rs](src/db.rs): PostgreSQL connection and file metadata queries.
-- [src/api](src/api): Axum REST API (routes, handlers, JWT auth middleware, app state).
-- [migrations](migrations): SQL database migrations.
-- [.sqlx](.sqlx): SQLx offline query metadata used for Docker builds.
-- [tests](tests): test suite.
+Main modules:
+
+- [src/main.rs](src/main.rs): entry point for the main binary and runtime mode selection
+- [src/server.rs](src/server.rs): TCP listener and file ingestion logic
+- [src/customer.rs](src/customer.rs): TCP client logic for sending files
+- [src/api](src/api): HTTP routes and handlers for the REST API
+- [src/db.rs](src/db.rs): PostgreSQL connection and database queries
+- [src/cli_helpers.rs](src/cli_helpers.rs): parsing utilities and runtime mode helpers
+- [filevault-cli/src/main.rs](filevault-cli/src/main.rs): command-line HTTP client for the API
+- [migrations](migrations): SQL migration scripts
+- [tests](tests): project test suite
 
 ## Requirements
 
-- Rust 1.88 or later (rustc + cargo)
-- Docker and Docker Compose for the containerized setup
-- `sqlx-cli` for running database migrations and regenerating SQLx metadata
-- Linux, macOS, or Windows
-- Local networking access for host/port communication
+- Rust 1.88 or newer
+- Cargo
+- Docker and Docker Compose
+- PostgreSQL 16 (provided by the Docker stack)
+- sqlx-cli for migrations and SQLx metadata refresh
 
-Check your toolchain:
+Check the toolchain:
 
 ```bash
 cargo --version
 ```
 
-Install the SQLx CLI when using the database from the host:
+Install the SQLx CLI if you need to run migrations from the host machine:
 
 ```bash
 cargo install sqlx-cli --no-default-features --features postgres
 ```
 
-## Database Setup
+## Quick start
 
-Docker Compose starts PostgreSQL 16 with these development defaults:
+1. Create a `.env` file in the project root.
+2. Start PostgreSQL.
+3. Run the migrations.
+4. Start the server or API.
+5. Use the CLI or the direct TCP client.
 
-- Host connection: `postgresql://filevault:changeme@localhost:5433/filevault`
-- Container connection: `postgresql://filevault:changeme@db:5432/filevault`
+Example for a local environment:
 
-Create a local `.env` file for commands run from the host:
+```bash
+cp .env.example .env
+```
+
+If there is no `.env.example`, create the file manually with:
 
 ```env
 DATABASE_URL=postgresql://filevault:changeme@localhost:5433/filevault
 DATABASE_URL_TEST=postgresql://filevault:changeme@localhost:5433/filevaulttest
-JWT_SECRET=<a random secret>
-JWT_SECRET_TEST=<a random secret for tests>
+JWT_SECRET=replace_with_a_secure_random_value
+JWT_SECRET_TEST=replace_with_another_secure_random_value
 ```
 
-`JWT_SECRET` signs and validates the API's JWT tokens; generate one with the `key` binary:
+## Environment configuration
+
+The project expects a PostgreSQL database and a JWT secret for the API runtime.
+
+Generate a JWT secret with:
 
 ```bash
 cargo run --bin key
 ```
 
-Start the database and apply migrations:
+This command produces a secure random string suitable for `JWT_SECRET`.
+
+## Database setup
+
+The project is configured to use PostgreSQL through Docker Compose.
+
+Start only the database and wait for it to be healthy:
 
 ```bash
 docker compose up -d --wait db
+```
+
+Then run migrations:
+
+```bash
 set -a
 source .env
 set +a
 sqlx migrate run
 ```
 
-The `sqlx::query!` and `sqlx::query_as!` macros validate SQL at compile time. After changing a query or a migration, refresh the committed offline metadata:
+If you change SQL queries or add a migration, regenerate the offline SQLx metadata:
 
 ```bash
 set -a
@@ -136,86 +190,17 @@ set +a
 cargo sqlx prepare -- --all-targets
 ```
 
-## REST API
+## Running the TCP server
 
-The `api` binary mode exposes a JWT-authenticated REST API built with Axum. Locally:
-
-```bash
-set -a
-source .env
-set +a
-cargo run -- api ::1 8081
-```
-
-Routes:
-
-- `GET /health`: liveness check, no auth required.
-- `POST /auth/register`: create a user (`email`, `username`, `password`, `fullname`).
-- `POST /auth/login`: authenticate and receive a JWT (`{ "token": "..." }`).
-- `GET /files`: list the authenticated user's files.
-- `POST /files`: upload a file (multipart).
-- `GET /files/:id`: download a file by id.
-- `DELETE /files/:id`: delete a file by id.
-- `GET /stats`: aggregate statistics (total files, bytes, users).
-
-All routes under `/files` and `/stats` require an `Authorization: Bearer <token>` header obtained from `/auth/login`.
-
-## Docker Usage
-
-Build and start the application stack:
-
-```bash
-docker compose up --build
-```
-
-This starts four services: `db` (PostgreSQL), `server` (TCP file server on port `8080`), `api` (REST API on port `8081`), and `customer` (a one-shot client sending `README.md` to `server`). Docker supplies `DATABASE_URL` automatically for `server`/`api` and waits for PostgreSQL to become healthy; `JWT_SECRET` for the `api` service is read from the host environment/`.env` file. Stop the stack with:
-
-```bash
-docker compose down
-```
-
-## Local Usage
-
-From the repository root:
-
-```bash
-set -a
-source .env
-set +a
-cargo build
-```
-
-Optional release build:
-
-```bash
-cargo build --release
-```
-
-## Usage
-
-Run all commands from the repository root.
-
-### 1. Start Server Only
-
-```bash
-cargo run -- server <host> <port>
-```
-
-Example:
+The main server binary runs the file transfer listener.
 
 ```bash
 cargo run -- server ::1 8080
 ```
 
-### 2. Interactive Client/Server Mode
+This starts a TCP server bound to the host and port specified.
 
-This mode starts listening and opens an interactive prompt:
-
-```bash
-cargo run -- <host> <port>
-```
-
-Example:
+The project also supports a direct interactive mode:
 
 ```bash
 cargo run -- ::1 8080
@@ -229,34 +214,137 @@ Available interactive commands:
 - `help prod`
 - `exit`
 
-### 3. Legacy Compatibility Mode
-
-Send file:
+Legacy compatibility mode is also still available:
 
 ```bash
-cargo run -- filevault --methode POST <host> <port> --filename <file> [--root <directory>]
+cargo run -- filevault --methode POST ::1 8080 --filename README.md
+cargo run -- filevault methode GET ::1 8080
 ```
 
-GET mode (interactive):
+## Running the REST API
+
+Start the Axum API with:
 
 ```bash
-cargo run -- filevault methode GET <host> <port>
+set -a
+source .env
+set +a
+cargo run -- api ::1 8081
 ```
 
-The parser also supports `customer` and `method/--method` aliases.
+The API exposes these routes:
 
-### 4. Test Runtime Mode
+- `GET /health`
+- `POST /auth/register`
+- `POST /auth/login`
+- `GET /files`
+- `POST /files`
+- `GET /files/:id`
+- `DELETE /files/:id`
+- `GET /stats`
 
-Use `--test` (also `--tests` or `--test-mode`) to force runtime output into test folders:
+The protected endpoints require a bearer token in the `Authorization` header:
 
-- [tests/log_files](tests/log_files)
-- [tests/server_files](tests/server_files)
+```http
+Authorization: Bearer <token>
+```
 
-Example:
+The token is returned by `/auth/login`.
+
+## Using the CLI
+
+The workspace includes a dedicated HTTP client under [filevault-cli](filevault-cli).
+
+### Login
 
 ```bash
-cargo run -- --test ::1 8080
+cargo run -p filevault-cli -- --server http://localhost:8081 login --email user@example.com --mot_de_passe secret
 ```
+
+This saves the JWT token in the local CLI configuration.
+
+### Upload a file
+
+```bash
+cargo run -p filevault-cli -- --server http://localhost:8081 upload ./README.md
+```
+
+### Download a file
+
+```bash
+cargo run -p filevault-cli -- --server http://localhost:8081 download 1 --output ./downloaded.md
+```
+
+### List files
+
+```bash
+cargo run -p filevault-cli -- --server http://localhost:8081 list
+```
+
+### Show statistics
+
+```bash
+cargo run -p filevault-cli -- --server http://localhost:8081 stats
+```
+
+## Docker compose
+
+The Compose file starts the full local stack:
+
+- `db`: PostgreSQL 16
+- `server`: TCP file server on port `8080`
+- `api`: REST API on port `8081`
+- `customer`: demo client sending `README.md`
+- `cli`: example API client command
+
+Start the stack:
+
+```bash
+docker compose up --build
+```
+
+Or start only the required services if you are developing iteratively:
+
+```bash
+docker compose up -d db api cli
+```
+
+Stop everything:
+
+```bash
+docker compose down
+```
+
+The API service reads `JWT_SECRET` from the host environment or `.env` file.
+
+## Testing
+
+The project includes Rust tests for the API and server layers.
+
+Run the full suite:
+
+```bash
+cargo test
+```
+
+Run a focused subset:
+
+```bash
+cargo test --test api_test
+cargo test --test server_test
+```
+
+A useful helper target is also available from the Makefile:
+
+```bash
+make test
+make test-api
+make test-server
+```
+
+## Notes
+
+The repository includes both the main application and a CLI workspace package. For backend-focused development, the main entry points are the server and API binaries. The file transfer protocol is intentionally simple and can be used for local networking tests and academic demonstrations.
 
 ## Testing
 
