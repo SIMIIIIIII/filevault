@@ -108,9 +108,6 @@ pub async fn mtls_middleware(
     req: Request,
     next: Next,
 ) -> Response {
-    // Only the trusted `Accept` layer can set this extension (derived from the verified
-    // client cert), so falling back here just means the connection didn't go through TLS
-    // (e.g. tests calling the router directly), not that identity was spoofed.
     let identity = req.extensions()
         .get::<ClientIdentity>()
         .map(|i| i.0.clone())

@@ -11,7 +11,7 @@ use std::{
 };
 
 use crate::{
-    db::{connexion_db, insert_file}, files::{
+    files::{
         add_line_in_file,
         open_file_append,
         open_file_write
@@ -94,14 +94,6 @@ impl Server {
 
         Self::write_data(&mut reader, &mut file, packet.data_size()).await?;
         let _ = Self::update_history(packet.get_name(), packet.data_size(), history_path).await;
-
-        let pool = connexion_db(None)
-            .await
-            .map_err(|e| FileVaultError::DatabaseError(e.to_string()))?;
-
-        insert_file(pool, &packet.get_name(), packet.data_size())
-            .await
-            .map_err(|e| FileVaultError::DatabaseError(e.to_string()))?;
 
         Ok(())
     }

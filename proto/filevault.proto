@@ -1,0 +1,73 @@
+syntax = "proto3";
+package filevault;
+
+// Enum
+enum Status {
+    UNKOWN_STATUS = 0; // La valeur 0 DOIT exister
+    IN_PROGRESS = 1;
+    DONE = 2;
+    FAILURE = 3;
+}
+
+// Messages File
+message File {
+    int64 id = 1;
+    int64 user_id = 2;
+    string name = 3;
+    int64 size = 4;
+    string sha256 = 5;
+    string file_path = 6;
+    int64 created_at = 7; // Unix timestamp
+    int64 nb_downloads= 8;
+}
+
+//Message User
+message User {
+    int64 id = 1;
+    string fullname = 2;
+    string username = 3;
+    string password = 4;
+    string email = 5;
+    int64 created_at = 6;
+}
+
+// Messages request/response
+message UploadMetadata {
+    string name = 1;
+    int64 size = 2;
+    string sha256 = 4; // Optional
+}
+message UploadChunk {oneof payload { UploadMetadata metadata = 1; bytes data = 2;}}
+message UploadResponse { int64 id = 1; string sha256 = 2; Status status = 3; string message= 4;}
+
+message DownloadRequest { int64 file_id = 1; int64 offset = 2; int64 length = 3;}
+
+message DataChunk { bytes data = 1; int64 offset = 2;bool last = 3;}
+
+message ListRequest { int32 page = 1; int32 limit = 2; }
+message ListResponse { repeated File files = 1; int32 total = 2; }
+
+message DeleteRequest { int64 id = 1; }
+message DeleteResponse { bool succes = 1; }
+
+message LoginRequest { string email = 1; string password = 2; }
+message LoginResponse { string token = 1; }
+
+message RegisterRequest {
+    string fullname = 2;
+    string username = 3;
+    string password = 4;
+    string email = 5;
+}
+
+message RegisterResponse { Status status = 3;} 
+
+// Service 
+service FileVault {
+    rpc List (ListRequest) returns (ListResponse);
+    rpc Delete(DeleteRequest) returns (DeleteResponse);
+    rpc Upload(stream UploadChunk) returns (UploadResponse);
+    rpc Download(DownloadRequest) returns (stream DataChunk);
+    rpc Login(LoginRequest) returns (LoginResponse);
+    rpc Register(RegisterRequest) returns (RegisterResponse);
+}

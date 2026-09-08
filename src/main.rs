@@ -3,7 +3,7 @@ use std::{
 };
 
 use file_vault::{
-    cli_helpers::{
+    api, cli_helpers::{
         RuntimeMode,
         ensure_runtime_directories,
         get_history_test,
@@ -15,12 +15,10 @@ use file_vault::{
         run_legacy_mode,
         runtime_directories,
         usage
-    },
-    server::Server,
-    api,
-    db
-    
+    }, db, grpc::server::FileVaultService, server::Server
 };
+use file_vault::grpc::server::filevault::file_vault_server::FileVaultServer;
+use tonic::transport::{Identity, ServerTlsConfig};
 
 const LISTENER_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
@@ -53,6 +51,48 @@ async fn run() -> Result<(), String> {
                 .await
                 .map_err(|e| map_error(file_vault::files_vault_errors::FileVaultError::ConnectionError(e.to_string())))
         }
+
+        "grpc" => {
+            let (host, port) = parse_host_port(args.collect())?;
+            let pool = db::connexion_db(None)
+                .await
+                .map_err(|e| map_error(file_vault::files_vault_errors::FileVaultError::DatabaseError(e.to_string())))?;
+
+            let addr = format!("[{}]:{}", host, port)
+                .parse::<std::net::SocketAddr>()
+                .map_err(|e| e.to_string())?;
+
+            let jwt_secret = env::var("JWT_SECRET")
+            .map_err(|_| "JWT_SECRET wasn't defined".to_string())?;
+
+            let service = FileVaultService {
+                pool,
+                jwt_secret,
+                max_upload_bytes: 100 * 1024 * 1024
+            };
+
+            let cert = tokio::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/pki/server/server.crt"))
+                .await
+                .map_err(|e| e.to_string())?;
+
+            let key = tokio::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/pki/server/server.key"))
+                .await
+                .map_err(|e| e.to_string())?;
+            let identity = Identity::from_pem(cert, key);
+            let tls_config = ServerTlsConfig::new().identity(identity);
+
+            println!("[SERVER] : grcp stated on {addr} ");
+            tonic::transport::Server::builder()
+                .tls_config(tls_config)
+                .map_err(|e| e.to_string())?
+                .add_service(FileVaultServer::new(service))
+                .serve(addr)
+            .await
+            .map_err(|e| e.to_string())?;
+        
+            Ok(())
+        }
+
         "server" => {
             let (host, port) = parse_host_port(args.collect())?;
             
