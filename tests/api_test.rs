@@ -2,7 +2,7 @@
 mod tests {
     use std::{env, time::{SystemTime, UNIX_EPOCH}};
 
-    use file_vault::{api::{handlers::InscriptionRequest, routes, state::AppState}, db::{self, connexion_db}};
+    use file_vault::{api::{routes, state::AppState}, db::{self}};
 
     use tower::util::ServiceExt;
     use tower_http::trace::TraceLayer;

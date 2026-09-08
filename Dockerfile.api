@@ -7,6 +7,7 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release || true
 COPY src ./src
 COPY benches ./benches
+COPY filevault-cli ./filevault-cli
 RUN cargo build --release
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install netcat-openbsd -y --no-install-recommends \

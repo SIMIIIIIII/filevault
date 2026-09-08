@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO files (name, size)\n        VALUES ($1, $2) RETURNING id",
+  "query": "DELETE FROM files\n        WHERE id = $1\n        AND user_id = $2\n        RETURNING id",
   "describe": {
     "columns": [
       {
@@ -11,13 +11,13 @@
     ],
     "parameters": {
       "Left": [
-        "Text",
-        "Int8"
+        "Int4",
+        "Int4"
       ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "0a0c99156e6d0f95f634558c0129211e1cd253e6b37bc5a8cfa48d9a45fd6b08"
+  "hash": "2b439a16f400138d398c8cca23c0f7f6e94fb4b36c38f0d769c7488891c3298e"
 }
