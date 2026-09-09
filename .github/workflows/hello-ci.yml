@@ -1,0 +1,17 @@
+name: Learn Githun Action
+
+on:
+    push:
+        branches:
+            - learn_git_action
+
+jobs:
+    Verification:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Dire bonjour
+              run: echo "Bonjour je m'appele Simeon"
+            
+            - name: Afficher la Date
+              run: Date
