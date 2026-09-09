@@ -39,3 +39,52 @@ jobs:
 
             - name: Verify with clippy
               run: cargo clippy --all-targets --all-features -- -D warnings
+
+    test:
+        name: Tests
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        needs: lint
+
+        services:
+            postgres:
+                image: postgres:16-alpine
+                env:
+                    POSTGRES_PASSWORD: testpassword
+                    POSTGRES_DB: filevault_test
+                    POSTGRES_USER: filevault
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 5s
+                    --health-timeout 3s
+                    --health-retries 10
+                ports:
+                    - 5432:5432
+
+        steps:
+            - name: Retrieve the code
+              uses: actions/checkout@v4
+
+            - name: install Rust stable
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                components: rustfmt, clippy
+
+            - name: Install Protoc
+              run: |
+                sudo apt-get update
+                sudo apt-get install -y protobuf-compiler
+
+            - name: Cache Cargo
+              uses: Swatinem/rust-cache@v2
+              with:
+                cache-on-failure: true
+
+            - name: Install sqlx-cli (migrations)
+              run: cargo install sqlx-cli --no-default-features --features postgres
+              
+            - name: Run migrations
+              run: sqlx migrate run
+              
+            - name: Run tests
+              run: cargo test --all-features -- --test-threads=4
