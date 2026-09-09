@@ -24,6 +24,11 @@ jobs:
               with:
                 components: rustfmt, clippy
 
+            - name: Install Protoc
+              uses: arduino/setup-protoc@v3
+              with:
+                version: "latest"
+
             - name: Cache Cargo
               uses: Swatinem/rust-cache@v2
               with:
