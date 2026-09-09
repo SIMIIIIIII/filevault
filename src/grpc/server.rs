@@ -7,6 +7,7 @@ use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tonic::{Request, Response, Status, Streaming};
 
+#[allow(clippy::result_large_err)]
 pub mod filevault {
     tonic::include_proto!("filevault");
 }
