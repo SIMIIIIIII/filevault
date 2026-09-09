@@ -1,7 +1,10 @@
 use std::{fs, path::PathBuf};
 
 fn path_token() -> PathBuf {
-    dirs::home_dir().unwrap_or_default().join(".filevault").join("token")
+    dirs::home_dir()
+        .unwrap_or_default()
+        .join(".filevault")
+        .join("token")
 }
 
 pub fn save_token(token: &str) -> std::io::Result<()> {

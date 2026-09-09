@@ -1,11 +1,8 @@
 use std::env;
 
-use file_vault::{cli_helpers::{
-    parse_host_port_with_first,
-    run_client_get_mode,
-    run_client_post_mode,
-    usage
-}, db::{connexion_db, get_all_files}};
+use file_vault::cli_helpers::{
+    parse_host_port_with_first, run_client_get_mode, run_client_post_mode, usage,
+};
 
 #[tokio::main]
 async fn main() {
@@ -23,7 +20,11 @@ async fn run() -> Result<(), String> {
     let (host, port) = parse_host_port_with_first(first, rest.clone())?;
     let remaining: Vec<String> = rest.into_iter().skip(1).collect();
 
-    match remaining.first().map(|value| value.to_ascii_lowercase()).as_deref() {
+    match remaining
+        .first()
+        .map(|value| value.to_ascii_lowercase())
+        .as_deref()
+    {
         Some("send") => run_client_post_mode(host, port, remaining[1..].to_vec()).await,
         _ => run_client_get_mode(host, port).await,
     }

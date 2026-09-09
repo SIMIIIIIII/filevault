@@ -13,16 +13,14 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commande {
     Login {
-    #[arg(long)]
+        #[arg(long)]
         email: String,
         #[arg(long)]
         mot_de_passe: String,
     },
 
     /// Envoyer un fichier vers le serveur
-    Upload {
-        fichier: PathBuf,
-    },
+    Upload { fichier: PathBuf },
 
     /// Télécharger un fichier depuis le serveur
     Download {
@@ -33,7 +31,7 @@ pub enum Commande {
 
     /// Lister les fichiers stockés
     List,
-    
+
     /// Afficher les statistiques du serveur
     Stats,
 }

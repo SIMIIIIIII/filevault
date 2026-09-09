@@ -10,7 +10,8 @@ pub async fn open_file_write(filename: &str, exist: bool) -> std::io::Result<fs:
         .create(!exist)
         .truncate(true)
         .write(true)
-        .open(filename).await
+        .open(filename)
+        .await
 }
 
 pub async fn write_in_file(file: &mut fs::File, payload: Vec<u8>) -> std::io::Result<()> {
@@ -23,7 +24,8 @@ pub async fn open_file_append(filename: &str, exist: bool) -> std::io::Result<fs
     fs::OpenOptions::new()
         .create(!exist)
         .append(true)
-        .open(filename).await
+        .open(filename)
+        .await
 }
 
 pub async fn add_line_in_file(file: &mut fs::File, payload: Vec<u8>) -> std::io::Result<()> {

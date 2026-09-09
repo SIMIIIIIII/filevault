@@ -1,13 +1,13 @@
-use std::io::{Cursor};
+use std::io::Cursor;
 
-use file_vault::{files_vault_errors::FileVaultError, protocole::{self, Packet}};
+use file_vault::{
+    files_vault_errors::FileVaultError,
+    protocole::{self, Packet},
+};
 
 #[test]
 fn test_create_packet() {
-    let packet = protocole::Packet::from(
-        "test1".to_string(),
-        50
-    );
+    let packet = protocole::Packet::from("test1".to_string(), 50);
 
     assert_eq!("test1".to_string(), packet.get_name());
     assert_eq!(50, packet.data_size());
@@ -15,10 +15,7 @@ fn test_create_packet() {
 
 #[test]
 fn test_packet_to_byte() {
-    let packet = protocole::Packet::from(
-        "test1".to_string(),
-        50
-    );
+    let packet = protocole::Packet::from("test1".to_string(), 50);
 
     let received_bytes = packet.to_byte();
     let mut expected_bytes: Vec<u8> = Vec::new();
@@ -28,7 +25,6 @@ fn test_packet_to_byte() {
     expected_bytes.extend_from_slice((50u64).to_be_bytes().as_slice());
 
     assert_eq!(expected_bytes, received_bytes);
-
 }
 
 #[tokio::test]
@@ -53,7 +49,7 @@ async fn test_bytes_to_packet_fails() {
     bytes.extend_from_slice((50u64).to_be_bytes().as_slice());
 
     let mut cursor = Cursor::new(bytes);
-    
+
     let get_packet = Packet::from_bytes(&mut cursor).await;
 
     assert!(get_packet.is_err());

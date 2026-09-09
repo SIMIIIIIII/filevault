@@ -1,5 +1,5 @@
+use base64::{Engine, engine::general_purpose::STANDARD};
 use rand::RngCore;
-use base64::{engine::general_purpose::STANDARD, Engine};
 
 fn main() {
     let mut octets = [0u8; 32]; // 256 bits

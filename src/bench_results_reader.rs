@@ -1,7 +1,6 @@
 use std::{
     collections::BTreeMap,
-    env,
-    fs,
+    env, fs,
     path::{Path, PathBuf},
 };
 
@@ -44,7 +43,9 @@ fn read_csv_rows(path: &Path) -> Result<Vec<CsvRow>, String> {
     let mut lines = content.lines();
     let header = lines.next().ok_or_else(|| "empty CSV file".to_string())?;
 
-    if header.trim() != "size_label,bytes_per_client,clients,total_bytes,iteration,elapsed_ms,throughput_mib_s" {
+    if header.trim()
+        != "size_label,bytes_per_client,clients,total_bytes,iteration,elapsed_ms,throughput_mib_s"
+    {
         return Err(format!(
             "invalid CSV header: {header}. Expected: size_label,bytes_per_client,clients,total_bytes,iteration,elapsed_ms,throughput_mib_s"
         ));
@@ -87,19 +88,19 @@ fn read_csv_rows(path: &Path) -> Result<Vec<CsvRow>, String> {
 fn parse_u64(value: &str, line: usize, column: &str) -> Result<u64, String> {
     value
         .parse::<u64>()
-    .map_err(|error| format!("line {line}, column {column}: {error}"))
+        .map_err(|error| format!("line {line}, column {column}: {error}"))
 }
 
 fn parse_usize(value: &str, line: usize, column: &str) -> Result<usize, String> {
     value
         .parse::<usize>()
-    .map_err(|error| format!("line {line}, column {column}: {error}"))
+        .map_err(|error| format!("line {line}, column {column}: {error}"))
 }
 
 fn parse_f64(value: &str, line: usize, column: &str) -> Result<f64, String> {
     value
         .parse::<f64>()
-    .map_err(|error| format!("line {line}, column {column}: {error}"))
+        .map_err(|error| format!("line {line}, column {column}: {error}"))
 }
 
 fn print_summary(path: &Path, rows: &[CsvRow]) {
@@ -131,7 +132,8 @@ fn print_summary(path: &Path, rows: &[CsvRow]) {
             .iter()
             .map(|row| row.elapsed_ms)
             .fold(f64::NEG_INFINITY, f64::max);
-        let avg_elapsed_ms = group_rows.iter().map(|row| row.elapsed_ms).sum::<f64>() / iterations as f64;
+        let avg_elapsed_ms =
+            group_rows.iter().map(|row| row.elapsed_ms).sum::<f64>() / iterations as f64;
 
         let min_throughput = group_rows
             .iter()
@@ -162,15 +164,11 @@ fn print_summary(path: &Path, rows: &[CsvRow]) {
         println!("  loaded iterations: {iterations} (max iteration: {max_iteration})");
         println!(
             "  time min/avg/max: {:.3} / {:.3} / {:.3} ms",
-            min_elapsed_ms,
-            avg_elapsed_ms,
-            max_elapsed_ms,
+            min_elapsed_ms, avg_elapsed_ms, max_elapsed_ms,
         );
         println!(
             "  throughput min/avg/max: {:.2} / {:.2} / {:.2} MiB/s",
-            min_throughput,
-            avg_throughput,
-            max_throughput,
+            min_throughput, avg_throughput, max_throughput,
         );
         println!();
     }

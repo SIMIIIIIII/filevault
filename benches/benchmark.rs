@@ -1,7 +1,4 @@
-use std::{
-    fmt::Write as _,
-    path::PathBuf,
-};
+use std::{fmt::Write as _, path::PathBuf};
 
 use chrono::Utc;
 use file_vault::{customer::Customer, server::Server};
@@ -10,7 +7,7 @@ use tokio::{
     fs,
     net::TcpListener,
     task::JoinHandle,
-    time::{sleep, Duration, Instant},
+    time::{Duration, Instant, sleep},
 };
 
 const HOST: &str = "::1";
@@ -128,7 +125,8 @@ fn spawn_server(
     history_path: PathBuf,
 ) -> JoinHandle<Result<(), file_vault::files_vault_errors::FileVaultError>> {
     tokio::spawn(async move {
-        let mut server = Server::from_with_paths(HOST.to_string(), port, storage_root, history_path);
+        let mut server =
+            Server::from_with_paths(HOST.to_string(), port, storage_root, history_path);
         server.listening_async(SERVER_TIMEOUT).await
     })
 }
@@ -137,7 +135,12 @@ async fn available_port() -> u64 {
     let listener = TcpListener::bind((HOST, 0))
         .await
         .expect("unable to bind an ephemeral port");
-    u64::from(listener.local_addr().expect("missing listener address").port())
+    u64::from(
+        listener
+            .local_addr()
+            .expect("missing listener address")
+            .port(),
+    )
 }
 
 async fn connect_with_retry(port: u64) -> Customer {
@@ -204,7 +207,9 @@ async fn write_reports(results: &[ResultRow]) {
 }
 
 fn build_csv(results: &[ResultRow]) -> String {
-    let mut output = String::from("size_label,bytes_per_client,clients,total_bytes,iteration,elapsed_ms,throughput_mib_s\n");
+    let mut output = String::from(
+        "size_label,bytes_per_client,clients,total_bytes,iteration,elapsed_ms,throughput_mib_s\n",
+    );
     for result in results {
         writeln!(
             output,
@@ -223,7 +228,9 @@ fn build_csv(results: &[ResultRow]) -> String {
 }
 
 fn build_markdown(results: &[ResultRow]) -> String {
-    let mut output = String::from("# FileVault Benchmark Results\n\n| Size | Clients | Iteration | Elapsed | Throughput |\n|---|---:|---:|---:|---:|\n");
+    let mut output = String::from(
+        "# FileVault Benchmark Results\n\n| Size | Clients | Iteration | Elapsed | Throughput |\n|---|---:|---:|---:|---:|\n",
+    );
     for result in results {
         writeln!(
             output,

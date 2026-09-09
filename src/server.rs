@@ -1,26 +1,21 @@
 use tokio::{
-    net::{TcpListener,TcpStream},
-    time::{Instant, sleep_until, Duration},
     fs,
-    io::{AsyncWriteExt, BufReader, AsyncReadExt},
+    io::{AsyncReadExt, AsyncWriteExt, BufReader},
+    net::{TcpListener, TcpStream},
     sync::Mutex,
+    time::{Duration, Instant, sleep_until},
 };
 
-use std::{
-    path::PathBuf,
-};
+use std::path::PathBuf;
 
 use crate::{
-    files::{
-        add_line_in_file,
-        open_file_append,
-        open_file_write
-    }, files_vault_errors::FileVaultError, protocole::Packet,
+    files::{add_line_in_file, open_file_append, open_file_write},
+    files_vault_errors::FileVaultError,
+    protocole::Packet,
 };
 
 use chrono::Utc;
 use sha2::{Digest, Sha256};
-
 
 pub struct Server {
     numbers_of_connexion: Mutex<u128>,
@@ -86,10 +81,10 @@ impl Server {
         let mut file = open_file_write(
             &storage_root
                 .join(packet.get_name().as_str())
-                .to_string_lossy()
-                .into_owned(),
+                .to_string_lossy(),
             false,
-        ).await
+        )
+        .await
         .map_err(|e| FileVaultError::FileOpeningError(e.to_string()))?;
 
         Self::write_data(&mut reader, &mut file, packet.data_size()).await?;
@@ -112,7 +107,7 @@ impl Server {
         let entry = format!("[SERVER]: {now} UCT  -  {filename} {size} - bytes");
 
         let file_exist = history_path.exists();
-        let mut file = open_file_append(&history_path.to_string_lossy().to_owned(), file_exist)
+        let mut file = open_file_append(&history_path.to_string_lossy(), file_exist)
             .await
             .map_err(|e| FileVaultError::FileOpeningError(e.to_string()))?;
 
@@ -143,7 +138,8 @@ impl Server {
                 return Err(FileVaultError::MissingPayload);
             }
 
-            file.write_all(&chunk[..read_bytes]).await
+            file.write_all(&chunk[..read_bytes])
+                .await
                 .map_err(|e| FileVaultError::FileWritingError(e.to_string()))?;
             hasher.update(&chunk[..read_bytes]);
             remaining -= read_bytes as u64;
@@ -155,14 +151,16 @@ impl Server {
 
         let mut received_hash = [0u8; 32];
         reader
-            .read_exact(&mut received_hash).await
+            .read_exact(&mut received_hash)
+            .await
             .map_err(|_| FileVaultError::MissingPayload)?;
 
         if received_hash != computed_hash {
             return Err(FileVaultError::HashMismatch);
         }
 
-        file.flush().await
+        file.flush()
+            .await
             .map_err(|e| FileVaultError::FileWritingError(e.to_string()))?;
 
         Ok(())
@@ -208,8 +206,6 @@ impl Server {
                 _ = sleep_until(inactivity_deadline) => break,
             }
         }
-
-        
 
         Ok(())
     }

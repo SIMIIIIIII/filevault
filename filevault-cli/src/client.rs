@@ -1,8 +1,8 @@
+use futures_util::stream::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::multipart;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncWriteExt};
-use futures_util::stream::StreamExt;
 
 #[derive(Deserialize, Debug)]
 pub struct File {
@@ -10,7 +10,7 @@ pub struct File {
     pub name: String,
     pub size: i64,
     pub created_at: String,
-    pub file_path: String
+    pub file_path: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -31,25 +31,19 @@ struct LoginResponse {
     token: String,
 }
 
-pub async fn list_files(
-    client: &reqwest::Client,
-    base_url: &str ) -> anyhow::Result<Vec<File>> {
-
+pub async fn list_files(client: &reqwest::Client, base_url: &str) -> anyhow::Result<Vec<File>> {
     let reponse = client
         .get(format!("{base_url}/files"))
         .send()
         .await?
         .error_for_status()?;
-    
+
     let files = reponse.json::<Vec<File>>().await?;
 
     Ok(files)
 }
 
-pub async fn statistics(
-    client: &reqwest::Client,
-    base_url: &str ) -> anyhow::Result<Stats> {
-
+pub async fn statistics(client: &reqwest::Client, base_url: &str) -> anyhow::Result<Stats> {
     let stats = client
         .get(format!("{base_url}/stats"))
         .send()
@@ -61,16 +55,18 @@ pub async fn statistics(
     Ok(stats)
 }
 
-
 pub async fn login(
     client: &reqwest::Client,
     base_url: &str,
     email: &str,
-    pwd: &str) -> anyhow::Result<String>{
-
+    pwd: &str,
+) -> anyhow::Result<String> {
     let reponse = client
         .post(format!("{base_url}/auth/login"))
-        .json(&LoginRequest { email, password: pwd })
+        .json(&LoginRequest {
+            email,
+            password: pwd,
+        })
         .send()
         .await?
         .error_for_status()?
@@ -83,8 +79,8 @@ pub async fn login(
 pub async fn list_files_authentified(
     client: &reqwest::Client,
     base_url: &str,
-    token: &str, ) -> anyhow::Result<Vec<File>>
-{
+    token: &str,
+) -> anyhow::Result<Vec<File>> {
     let files = client
         .get(format!("{base_url}/files"))
         .bearer_auth(token)
@@ -102,7 +98,6 @@ pub async fn upload_file(
     token: &str,
     local_path: &std::path::Path,
 ) -> anyhow::Result<File> {
-
     let file_name = local_path
         .file_name()
         .ok_or_else(|| anyhow::anyhow!("chemin invalide"))?
@@ -114,29 +109,25 @@ pub async fn upload_file(
 
     barre.set_style(
         ProgressStyle::with_template(
-        "{spinner:.cyan} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes}"
+            "{spinner:.cyan} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes}",
         )?
         .progress_chars("=>-"),
     );
-    
+
     let file = fs::File::open(local_path).await?;
     let barre_clone = barre.clone();
-    let stream = tokio_util::io::ReaderStream::new(file).map(move |chunk|
-        {
-            if let Ok(bytes) = &chunk {
-                barre_clone.inc(bytes.len() as u64);
-            }
+    let stream = tokio_util::io::ReaderStream::new(file).map(move |chunk| {
+        if let Ok(bytes) = &chunk {
+            barre_clone.inc(bytes.len() as u64);
+        }
         chunk
     });
 
-    let part = multipart::Part::stream_with_length(
-        reqwest::Body::wrap_stream(stream),
-        size,
-    )
-    .file_name(file_name);
+    let part = multipart::Part::stream_with_length(reqwest::Body::wrap_stream(stream), size)
+        .file_name(file_name);
 
     let form = multipart::Form::new().part("file", part);
-    
+
     let created_file = client
         .post(format!("{base_url}/files"))
         .bearer_auth(token)
@@ -158,9 +149,7 @@ pub async fn download_file(
     token: &str,
     id: i64,
     exit_path: &std::path::Path,
-) -> anyhow::Result<()>
-{
-
+) -> anyhow::Result<()> {
     let already_received = match fs::metadata(exit_path).await {
         Ok(meta) => meta.len(),
         Err(_) => 0,
@@ -175,25 +164,21 @@ pub async fn download_file(
     }
 
     let reponse = request.send().await?.error_for_status()?;
-    let total_size = reponse
-        .content_length()
-        .unwrap_or(0) + already_received;
+    let total_size = reponse.content_length().unwrap_or(0) + already_received;
 
     let barre = ProgressBar::new(total_size);
     barre.set_position(already_received);
-    barre.set_style(
-        ProgressStyle::with_template(
-        "{spinner:.green} [{bar:40.green/blue}] {bytes}/{total_bytes}"
-        )?
-    );
-    
+    barre.set_style(ProgressStyle::with_template(
+        "{spinner:.green} [{bar:40.green/blue}] {bytes}/{total_bytes}",
+    )?);
+
     let mut fichier = tokio::fs::OpenOptions::new()
         .create(true)
         .append(already_received > 0)
         .write(true)
         .open(exit_path)
         .await?;
-    
+
     let mut flux = reponse.bytes_stream();
     while let Some(morceau) = flux.next().await {
         let morceau = morceau?;

@@ -12,7 +12,7 @@ use tokio::{
     net::TcpListener,
     process::Command,
     sync::{Mutex, OnceCell},
-    time::{timeout, Duration},
+    time::{Duration, timeout},
 };
 
 static FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -36,12 +36,19 @@ async fn create_and_fill_file(filename: String) {
 
 async fn remove_test_files(filename: &str) {
     let _ = fs::remove_file(get_file_path(filename.to_string(), ROOT.to_string())).await;
-    let _ = fs::remove_file(get_file_path(filename.to_string(), SERVER_FILES.to_string())).await;
+    let _ = fs::remove_file(get_file_path(
+        filename.to_string(),
+        SERVER_FILES.to_string(),
+    ))
+    .await;
     let _ = fs::remove_file(get_file_path(HISTORY.to_string(), LOG_FILES.to_string())).await;
 }
 
 fn get_file_path(filename: String, root: String) -> String {
-    Path::new(&root).join(filename).to_string_lossy().into_owned()
+    Path::new(&root)
+        .join(filename)
+        .to_string_lossy()
+        .into_owned()
 }
 
 fn get_filename() -> String {
@@ -99,14 +106,29 @@ async fn run_interactive_session(commands: Vec<String>, port: &str) -> (bool, St
 
 #[tokio::test]
 async fn test_run_customer_success() {
-    let _lock = TEST_RUNTIME_LOCK.get_or_init(|| async { Mutex::new(()) }).await.lock().await;
+    let _lock = TEST_RUNTIME_LOCK
+        .get_or_init(|| async { Mutex::new(()) })
+        .await
+        .lock()
+        .await;
     let filename = get_filename();
     let file_path = get_file_path(filename.clone(), ROOT.to_string());
     create_and_fill_file(file_path.clone()).await;
     let port = find_available_port().await;
 
     let output = Command::new(env!("CARGO_BIN_EXE_file_vault"))
-        .args(["--test", "customer", "--methode", "POST", "127.0.0.1", &port, "--filename", &filename, "--root", ROOT])
+        .args([
+            "--test",
+            "customer",
+            "--methode",
+            "POST",
+            "127.0.0.1",
+            &port,
+            "--filename",
+            &filename,
+            "--root",
+            ROOT,
+        ])
         .output()
         .await
         .expect("failed to run binary");
@@ -138,12 +160,26 @@ async fn test_run_customer_success() {
 #[tokio::test]
 async fn test_run_fails_with_no_mode() {
     let output = Command::new(env!("CARGO_BIN_EXE_file_vault"))
-        .args(["--test", "--methode", "POST", "localhost", PORT_RUN_FAILED, "--filename", "lib.rs", "--root", "src"])
+        .args([
+            "--test",
+            "--methode",
+            "POST",
+            "localhost",
+            PORT_RUN_FAILED,
+            "--filename",
+            "lib.rs",
+            "--root",
+            "src",
+        ])
         .output()
         .await
         .expect("failed to run binary");
     assert!(!output.status.success());
-    assert!(String::from_utf8(output.stderr).unwrap().contains("[ERROR]: Usage:"));
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("[ERROR]: Usage:")
+    );
 }
 
 #[tokio::test]
@@ -154,12 +190,20 @@ async fn test_get_help() {
         .await
         .expect("failed to run binary");
     assert!(!output.status.success());
-    assert!(String::from_utf8(output.stderr).unwrap().contains("[ERROR]: Usage:"));
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("[ERROR]: Usage:")
+    );
 }
 
 #[tokio::test]
 async fn test_interactive_post_then_exit() {
-    let _lock = TEST_RUNTIME_LOCK.get_or_init(|| async { Mutex::new(()) }).await.lock().await;
+    let _lock = TEST_RUNTIME_LOCK
+        .get_or_init(|| async { Mutex::new(()) })
+        .await
+        .lock()
+        .await;
     let filename = get_filename();
     let file_path = get_file_path(filename.clone(), ROOT.to_string());
     create_and_fill_file(file_path).await;
@@ -168,7 +212,8 @@ async fn test_interactive_post_then_exit() {
     let (success, stdout, _) = run_interactive_session(
         vec![format!("POST {filename} --root {ROOT}"), "exit".to_string()],
         &port,
-    ).await;
+    )
+    .await;
     assert!(success);
     assert!(stdout.contains("[CLIENT]: file succefull sent!"));
     remove_test_files(&filename).await;
@@ -176,12 +221,14 @@ async fn test_interactive_post_then_exit() {
 
 #[tokio::test]
 async fn test_interactive_help_then_exit() {
-    let _lock = TEST_RUNTIME_LOCK.get_or_init(|| async { Mutex::new(()) }).await.lock().await;
+    let _lock = TEST_RUNTIME_LOCK
+        .get_or_init(|| async { Mutex::new(()) })
+        .await
+        .lock()
+        .await;
     let port = find_available_port().await;
-    let (success, stdout, _) = run_interactive_session(
-        vec!["help".to_string(), "exit".to_string()],
-        &port,
-    ).await;
+    let (success, stdout, _) =
+        run_interactive_session(vec!["help".to_string(), "exit".to_string()], &port).await;
     assert!(success);
     assert!(stdout.contains("Commands:"));
     assert!(stdout.contains("help"));
@@ -189,12 +236,14 @@ async fn test_interactive_help_then_exit() {
 
 #[tokio::test]
 async fn test_interactive_help_prod_then_exit() {
-    let _lock = TEST_RUNTIME_LOCK.get_or_init(|| async { Mutex::new(()) }).await.lock().await;
+    let _lock = TEST_RUNTIME_LOCK
+        .get_or_init(|| async { Mutex::new(()) })
+        .await
+        .lock()
+        .await;
     let port = find_available_port().await;
-    let (success, stdout, _) = run_interactive_session(
-        vec!["help prod".to_string(), "exit".to_string()],
-        &port,
-    ).await;
+    let (success, stdout, _) =
+        run_interactive_session(vec!["help prod".to_string(), "exit".to_string()], &port).await;
     assert!(success);
     assert!(stdout.contains("Production usage:"));
     assert!(stdout.contains("help prod"));
@@ -202,12 +251,17 @@ async fn test_interactive_help_prod_then_exit() {
 
 #[tokio::test]
 async fn test_interactive_unknown_command_then_exit() {
-    let _lock = TEST_RUNTIME_LOCK.get_or_init(|| async { Mutex::new(()) }).await.lock().await;
+    let _lock = TEST_RUNTIME_LOCK
+        .get_or_init(|| async { Mutex::new(()) })
+        .await
+        .lock()
+        .await;
     let port = find_available_port().await;
     let (success, stdout, _) = run_interactive_session(
         vec!["unknown-command".to_string(), "exit".to_string()],
         &port,
-    ).await;
+    )
+    .await;
     assert!(success);
     assert!(stdout.contains("Commands:"));
 }

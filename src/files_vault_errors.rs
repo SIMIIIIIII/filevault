@@ -10,7 +10,7 @@ pub enum FileVaultError {
     TcpSendingError(String),
     FileWritingError(String),
     PacketCorrupted,
-    DatabaseError(String)
+    DatabaseError(String),
 }
 
 impl fmt::Display for FileVaultError {
