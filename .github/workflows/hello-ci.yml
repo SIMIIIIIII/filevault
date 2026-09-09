@@ -14,4 +14,4 @@ jobs:
               run: echo "Bonjour je m'appele Simeon"
             
             - name: Afficher la Date
-              run: Date
+              run: date
