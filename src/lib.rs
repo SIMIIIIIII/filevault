@@ -1,9 +1,9 @@
+pub mod api;
+pub mod cli_helpers;
 pub mod customer;
+pub mod db;
 pub mod files;
 pub mod files_vault_errors;
+pub mod grpc;
 pub mod protocole;
 pub mod server;
-pub mod cli_helpers;
-pub mod db;
-pub mod api;
-pub mod grpc;

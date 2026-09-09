@@ -1,15 +1,15 @@
 use tokio::{
     fs,
-    io::{AsyncReadExt},
+    io::AsyncReadExt,
     net::TcpListener,
     time::{Duration, sleep},
 };
 
 use std::{
-    process,
     path::Path,
+    process,
     sync::atomic::{AtomicU64, Ordering},
-    time::{SystemTime, UNIX_EPOCH}
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use file_vault::{
@@ -34,12 +34,8 @@ async fn start_server(address: &str) {
         .expect("unable to bind listener");
 
     loop {
-        match listener.accept().await {
-            Ok((_stream, _address)) => {
-                break;
-            }
-            Err(_) => {
-            }
+        if let Ok((_stream, _address)) = listener.accept().await {
+            break;
         }
     }
 }
@@ -93,7 +89,6 @@ fn get_path(filename: String, root: String) -> String {
 }
 
 async fn create_and_fill_file(filename: String) {
-
     let get_file = open_file_write(filename.as_str(), false).await;
     assert!(get_file.is_ok());
 
@@ -112,7 +107,10 @@ async fn test_create_customer_without_connexion() {
     let customer = get_customer.unwrap();
 
     assert!(!customer.is_connected());
-    assert_eq!(format!("{HOST}:{PORT_WITHOUT_CONNEXION}"), customer.get_addres());
+    assert_eq!(
+        format!("{HOST}:{PORT_WITHOUT_CONNEXION}"),
+        customer.get_addres()
+    );
     assert_eq!(HOST, customer.get_host());
     assert_eq!(PORT_WITHOUT_CONNEXION, customer.get_port())
 }
@@ -135,7 +133,7 @@ async fn test_create_customer_with_connexion() {
     assert!(customer.is_connected());
     assert_eq!(address, customer.get_addres());
 
-    let _ = thread.await.expect("server task panicked");
+    thread.await.expect("server task panicked");
 }
 
 #[tokio::test]
@@ -146,7 +144,10 @@ async fn test_custmer_connexion_sucess() {
     let mut customer = get_customer.unwrap();
 
     assert!(!customer.is_connected());
-    assert_eq!(format!("{HOST}:{PORT_CONNEXION_SUCESS}"), customer.get_addres());
+    assert_eq!(
+        format!("{HOST}:{PORT_CONNEXION_SUCESS}"),
+        customer.get_addres()
+    );
 
     let address = format!("{HOST}:{PORT_CONNEXION_SUCESS}");
     let server_address = address.clone();
@@ -159,7 +160,7 @@ async fn test_custmer_connexion_sucess() {
     assert!(customer.connexion().await.is_ok());
     assert!(customer.is_connected());
 
-    let _ = thread.await.expect("server task panicked");
+    thread.await.expect("server task panicked");
 }
 
 #[tokio::test]
@@ -170,7 +171,10 @@ async fn test_custmer_connexion_fails() {
     let mut customer = get_customer.unwrap();
 
     assert!(!customer.is_connected());
-    assert_eq!(format!("{HOST}:{PORT_CONNEXION_FAILS}"), customer.get_addres());
+    assert_eq!(
+        format!("{HOST}:{PORT_CONNEXION_FAILS}"),
+        customer.get_addres()
+    );
 
     assert!(customer.connexion().await.is_err());
     assert!(!customer.is_connected());
@@ -189,14 +193,18 @@ async fn test_send_packet_fails_for_connexion() {
 
     let get_file = open_file_read(filename.clone()).await;
     assert!(get_file.is_ok());
-    
 
     let get_sent = customer.send_file(filename.clone(), None).await;
     let _ = fs::remove_file(filename).await;
-    
+
     assert!(get_sent.is_err());
 
-    assert!(get_sent.unwrap_err().to_string().contains("TcpStream connection Error:"));
+    assert!(
+        get_sent
+            .unwrap_err()
+            .to_string()
+            .contains("TcpStream connection Error:")
+    );
 }
 
 #[tokio::test]
@@ -221,14 +229,12 @@ async fn test_send_packet_success() {
 
     let get_file = open_file_read(filename.clone()).await;
     assert!(get_file.is_ok());
-    
 
     let get_sent = customer.send_file(filename.clone(), None).await;
     let _ = fs::remove_file(filename).await;
     assert!(get_sent.is_ok());
 
-    let _ = thread.await.expect("server task panicked");
-
+    thread.await.expect("server task panicked");
 }
 
 #[tokio::test]
@@ -254,11 +260,12 @@ async fn test_send_packet_with_root_sucess() {
 
     let get_file = open_file_read(file_path.clone()).await;
     assert!(get_file.is_ok());
-    
 
-    let get_sent = customer.send_file(filename.clone(), Some("tests".to_string())).await;
+    let get_sent = customer
+        .send_file(filename.clone(), Some("tests".to_string()))
+        .await;
     let _ = fs::remove_file(file_path.clone()).await;
     assert!(get_sent.is_ok());
 
-    let _ = thread.await.expect("server task panicked");
+    thread.await.expect("server task panicked");
 }

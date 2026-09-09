@@ -2,13 +2,8 @@ use std::{env, path::PathBuf, time::Duration};
 
 use file_vault::{
     cli_helpers::{
-        RuntimeMode,
-        ensure_runtime_directories,
-        get_history_test,
-        map_error,
-        parse_host_port,
-        parse_runtime_mode,
-        runtime_directories
+        RuntimeMode, ensure_runtime_directories, get_history_test, map_error, parse_host_port,
+        parse_runtime_mode, runtime_directories,
     },
     server::Server,
 };
@@ -40,11 +35,14 @@ async fn run() -> Result<(), String> {
         Server::from_with_paths(
             host,
             port,
-            PathBuf::from(storage_root),
-            PathBuf::from(get_history_test(log_root))
+            storage_root,
+            PathBuf::from(get_history_test(log_root)),
         )
     };
-    server.listening_async(LISTENER_TIMEOUT).await.map_err(map_error)?;
+    server
+        .listening_async(LISTENER_TIMEOUT)
+        .await
+        .map_err(map_error)?;
 
     Ok(())
 }

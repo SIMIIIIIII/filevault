@@ -10,13 +10,7 @@ use tokio::{
     io::AsyncReadExt,
 };
 
-use file_vault::files::{
-    self,
-    add_line_in_file,
-    open_file_append,
-    open_file_write,
-    write_in_file,
-};
+use file_vault::files::{self, add_line_in_file, open_file_append, open_file_write, write_in_file};
 
 static FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -33,11 +27,10 @@ fn get_file_name() -> String {
         .into_owned()
 }
 
-
 #[tokio::test]
 async fn test_open_file_fails_for_non_existing_file() {
     let file = files::open_file_read("test.txt".to_string()).await;
-    
+
     assert!(file.is_err());
 }
 
@@ -75,7 +68,7 @@ async fn test_write_in_file() {
 
     let reopened = files::open_file_read(filename.clone()).await;
     assert!(reopened.is_ok());
-    
+
     let mut res: Vec<u8> = Vec::new();
     assert!(reopened.unwrap().read_to_end(&mut res).await.is_ok());
 

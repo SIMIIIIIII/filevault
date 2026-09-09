@@ -10,7 +10,7 @@ use tokio::{
     fs,
     io::AsyncReadExt,
     net::TcpListener,
-    time::{sleep, Instant},
+    time::{Instant, sleep},
 };
 
 const HOST: &str = "::1";
@@ -71,9 +71,17 @@ async fn send_file(filename: String, port: u64) {
 }
 
 async fn receive_packet(port: u64, storage_root: PathBuf, log_root: PathBuf) {
-    let filename = storage_root.join(FILE_TO_SAVE).to_string_lossy().into_owned();
+    let filename = storage_root
+        .join(FILE_TO_SAVE)
+        .to_string_lossy()
+        .into_owned();
     let history = log_root.join("history.log").to_string_lossy().into_owned();
-    let mut server = Server::from_with_paths(HOST.to_string(), port, storage_root, PathBuf::from(&history));
+    let mut server = Server::from_with_paths(
+        HOST.to_string(),
+        port,
+        storage_root,
+        PathBuf::from(&history),
+    );
 
     assert_eq!(0, server.get_number_of_connexion().await);
     assert!(server.listening_async(DEFAULT_TIMEOUT).await.is_ok());
@@ -118,11 +126,20 @@ async fn test_server_listening() {
     let source_root = temp_root.path().join("source");
     let storage_root = temp_root.path().join("storage");
     let log_root = temp_root.path().join("logs");
-    fs::create_dir_all(&source_root).await.expect("unable to create source directory");
-    fs::create_dir_all(&storage_root).await.expect("unable to create storage directory");
-    fs::create_dir_all(&log_root).await.expect("unable to create log directory");
+    fs::create_dir_all(&source_root)
+        .await
+        .expect("unable to create source directory");
+    fs::create_dir_all(&storage_root)
+        .await
+        .expect("unable to create storage directory");
+    fs::create_dir_all(&log_root)
+        .await
+        .expect("unable to create log directory");
 
-    let filename = source_root.join(FILE_TO_SAVE).to_string_lossy().into_owned();
+    let filename = source_root
+        .join(FILE_TO_SAVE)
+        .to_string_lossy()
+        .into_owned();
     let server_task = tokio::spawn(receive_packet(port, storage_root, log_root));
 
     send_file(filename, port).await;
@@ -133,5 +150,10 @@ async fn find_available_port() -> u64 {
     let listener = TcpListener::bind((HOST, 0))
         .await
         .expect("unable to bind to ephemeral port");
-    u64::from(listener.local_addr().expect("unable to read local address").port())
+    u64::from(
+        listener
+            .local_addr()
+            .expect("unable to read local address")
+            .port(),
+    )
 }
