@@ -48,6 +48,8 @@ jobs:
         env:
             DATABASE_URL: postgresql://filevault:testpassword@localhost:5432/filevault_test
             DATABASE_URL_TEST: postgresql://filevault:testpassword@localhost:5432/filevault_test
+            JWT_SECRET_TEST: jwtjustfortest
+            JWT_SECRET: jwttobechangelater
 
         services:
             postgres:
