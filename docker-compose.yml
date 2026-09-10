@@ -35,6 +35,7 @@ services:
     volumes:
       - server_files:/app/server_files
       - log_files:/app/log_files
+      - ./pki:/app/pki:ro
     environment:
       DATABASE_URL: postgresql://filevault:${DB_PASSWORD:-changeme}@db:5432/filevault
       JWT_SECRET: ${JWT_SECRET}
