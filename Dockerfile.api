@@ -14,8 +14,9 @@ COPY benches ./benches
 COPY filevault-cli ./filevault-cli
 RUN cargo build --release
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install netcat-openbsd -y --no-install-recommends \
-ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && \
+	apt-get install -y --no-install-recommends netcat-openbsd ca-certificates && \
+	rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app/target/release/file_vault ./file_vault
 RUN mkdir -p /app/server_files

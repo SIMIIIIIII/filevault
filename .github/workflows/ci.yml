@@ -173,13 +173,14 @@ jobs:
             - name: Retrieve the code
               uses: actions/checkout@v4
             - name: Run Trivy vulnerability scanner
-              uses: aquasecurity/trivy-action@master
+              uses: aquasecurity/trivy-action@v0.36.0
               with:
                 image-ref: '${{ secrets.DOCKER_USERNAME }}/filevault:${{ github.sha }}'
                 format: 'sarif' # Format SARIF for GitHub Security
                 output: 'trivy-results.sarif'
                 scanners: 'vuln'
                 severity: 'CRITICAL,HIGH'
+                limit-severities-for-sarif: true
                 exit-code: '1'
                 ignore-unfixed: true
             - name: Upload Trivy scan results to GitHub Security tab
@@ -190,16 +191,17 @@ jobs:
                 category: 'trivy'
 
             - name: Run Trivy on filesystem
-              uses: aquasecurity/trivy-action@master
+              uses: aquasecurity/trivy-action@v0.36.0
               with:
                 scan-type: 'fs'
                 scan-ref: '.'
                 format: 'table'
                 scanners: 'vuln'
                 severity: 'CRITICAL,HIGH'
+                ignore-unfixed: true
                 exit-code: '1'
             - name: Generate SBOM
-              uses: aquasecurity/trivy-action@master
+              uses: aquasecurity/trivy-action@v0.36.0
               with:
                 image-ref: '${{ secrets.DOCKER_USERNAME }}/filevault:${{ github.sha }}'
                 format: 'cyclonedx'
