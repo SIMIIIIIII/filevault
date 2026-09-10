@@ -21,7 +21,8 @@ assert_eq() {
 
 echo '=== Test 1 : Health check ==='
 STATUS=$(curl -sf -o /dev/null -w '%{http_code}' \
-    --cacert $CA_CERT $BASE_URL/health)
+    --cacert $CA_CERT --cert $CLIENT_CERT --key $CLIENT_KEY \
+    $BASE_URL/health)
 
 assert_eq 'GET /health → 200' '200' "$STATUS"
 
