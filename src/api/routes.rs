@@ -1,5 +1,7 @@
 use axum::{
-    Router, extract::DefaultBodyLimit, middleware,
+    Router,
+    extract::DefaultBodyLimit,
+    middleware,
     routing::{get, post},
 };
 
