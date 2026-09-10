@@ -25,6 +25,8 @@ services:
     environment:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports: []
+    volumes:
+      - ./migrations:/docker-entrypoint-initdb.d:ro
 
 volumes:
   server_files:
