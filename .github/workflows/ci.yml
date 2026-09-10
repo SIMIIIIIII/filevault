@@ -224,10 +224,14 @@ jobs:
             - name: Retrieve the code
               uses: actions/checkout@v4
             - name: Create .env file
+              env:
+                DB_PASSWORD_TEST: ${{ secrets.DB_PASSWORD_TEST }}
               run: |
                 JWT_SECRET=$(openssl rand -hex 32)
+                DB_PASSWORD_URL=$(DB_PASSWORD="$DB_PASSWORD_TEST" python3 -c 'import os; from urllib.parse import quote; print(quote(os.environ["DB_PASSWORD"], safe=""))')
                 cat > .env << EOF
-                DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }}
+                DB_PASSWORD=$DB_PASSWORD_TEST
+                DB_PASSWORD_URL=$DB_PASSWORD_URL
                 JWT_SECRET=$JWT_SECRET
                 IMAGE_TAG=${{ github.sha }}
                 REGISTRY=${{ secrets.DOCKER_USERNAME }}
