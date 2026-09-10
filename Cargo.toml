@@ -8,7 +8,7 @@ default-run = "file_vault"
 members = ["filevault-cli"]
 
 [dependencies]
-sha2 = "0.10"
+sha2 = "0.11"
 tempfile = "3"
 tokio = { version = "1", features = ["full"] }
 async-stream = "0.3"
