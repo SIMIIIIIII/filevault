@@ -11,7 +11,7 @@ on:
 
 jobs:
     lint:
-        name: Lint & Format
+        name: "Lint & Format"
         runs-on: ubuntu-latest
         timeout-minutes: 10
 
@@ -33,6 +33,10 @@ jobs:
               uses: Swatinem/rust-cache@v2
               with:
                 cache-on-failure: true
+                prefix-key: 'v2'
+                cache-directories: |
+                    ~/.sqlx
+                    ~/.cargo/bin/sqlx
 
             - name: Verify formatage
               run: cargo fmt --all -- --check
@@ -87,9 +91,186 @@ jobs:
 
             - name: Install sqlx-cli (migrations)
               run: cargo install sqlx-cli --no-default-features --features postgres
-              
             - name: Run migrations
               run: sqlx migrate run
               
             - name: Run tests
               run: cargo test --all-features -- --test-threads=4
+
+    build-push:
+        name: Build & Push Docker Image
+        needs: [lint, test]
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        outputs:
+            image-digest: ${{ steps.build.outputs.digest }}
+            image-tag: ${{ steps.meta.outputs.tags }}
+
+        steps:
+            - name: Retrieve the code
+              uses: actions/checkout@v4
+            - name: Set up QEMU
+              uses: docker/setup-qemu-action@v3
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+              with:
+                driver-opts: image=moby/buildkit:latest
+
+            - name: Check Docker Hub credentials
+              env:
+                DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+                DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+              run: |
+                test -n "$DOCKER_USERNAME" || { echo "DOCKER_USERNAME is missing from GitHub Actions secrets"; exit 1; }
+                test -n "$DOCKER_TOKEN" || { echo "DOCKER_TOKEN is missing from GitHub Actions secrets"; exit 1; }
+
+            - name: Login to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                username: ${{ secrets.DOCKER_USERNAME }}
+                password: ${{ secrets.DOCKER_TOKEN }}
+            - name: Extract Docker metadata
+              id: meta
+              uses: docker/metadata-action@v5
+              with:
+                images: ${{ secrets.DOCKER_USERNAME }}/filevault
+                tags: |
+                  type=sha,prefix=,format=long
+                  type=ref,event=branch
+                  type=ref,event=pr
+                  type=semver,pattern={{version}}
+                  type=semver,pattern={{major}}.{{minor}}
+                  type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            - name: Build and push
+              id: build
+              uses: docker/build-push-action@v5
+              with:
+                context: .
+                file: ./Dockerfile.api
+                platforms: linux/amd64
+                push: ${{ github.event_name !='pull_request' }}
+                tags: ${{ steps.meta.outputs.tags }}
+                labels: ${{ steps.meta.outputs.labels }}
+                cache-from: type=gha # read from GitHub cache
+                cache-to: type=gha,mode=max # write in the cache GitHub
+                build-args: |
+                    BUILD_DATE=${{ github.event.head_commit.timestamp }}
+                    VCS_REF=${{ github.sha }}
+
+            - name: Image digest
+              run: echo '${{ steps.build.outputs.digest }}'
+
+    security-scan:
+        name: Security Scan (Trivy)
+        if: github.event_name != 'pull_request'
+        needs: build-push
+        runs-on: ubuntu-latest
+        permissions:
+            security-events: write
+            contents: read
+        steps:
+            - name: Retrieve the code
+              uses: actions/checkout@v4
+            - name: Run Trivy vulnerability scanner
+              uses: aquasecurity/trivy-action@v0.36.0
+              with:
+                image-ref: '${{ secrets.DOCKER_USERNAME }}/filevault:${{ github.sha }}'
+                format: 'sarif' # Format SARIF for GitHub Security
+                output: 'trivy-results.sarif'
+                scanners: 'vuln'
+                severity: 'CRITICAL,HIGH'
+                limit-severities-for-sarif: true
+                exit-code: '1'
+                ignore-unfixed: true
+            - name: Upload Trivy scan results to GitHub Security tab
+              uses: github/codeql-action/upload-sarif@v3
+              if: always() # Uploader even if the scan find CVE
+              with:
+                sarif_file: 'trivy-results.sarif'
+                category: 'trivy'
+
+            - name: Run Trivy on filesystem
+              uses: aquasecurity/trivy-action@v0.36.0
+              with:
+                scan-type: 'fs'
+                scan-ref: '.'
+                format: 'table'
+                scanners: 'vuln'
+                severity: 'CRITICAL,HIGH'
+                ignore-unfixed: true
+                exit-code: '1'
+            - name: Generate SBOM
+              uses: aquasecurity/trivy-action@v0.36.0
+              with:
+                image-ref: '${{ secrets.DOCKER_USERNAME }}/filevault:${{ github.sha }}'
+                format: 'cyclonedx'
+                output: 'sbom.json'
+                exit-code: '0'
+
+            - name: Upload SBOM
+              uses: actions/upload-artifact@v4
+              with:
+                name: sbom
+                path: sbom.json
+
+    integration-tests:
+        name: Integration Tests (E2E)
+        if: github.event_name != 'pull_request'
+        needs: build-push
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - name: Retrieve the code
+              uses: actions/checkout@v4
+            - name: Create .env file
+              env:
+                DB_PASSWORD_TEST: ${{ secrets.DB_PASSWORD_TEST }}
+              run: |
+                JWT_SECRET=$(openssl rand -hex 32)
+                DB_PASSWORD_URL=$(DB_PASSWORD="$DB_PASSWORD_TEST" python3 -c 'import os; from urllib.parse import quote; print(quote(os.environ["DB_PASSWORD"], safe=""))')
+                cat > .env << EOF
+                DB_PASSWORD=$DB_PASSWORD_TEST
+                DB_PASSWORD_URL=$DB_PASSWORD_URL
+                JWT_SECRET=$JWT_SECRET
+                IMAGE_TAG=${{ github.sha }}
+                REGISTRY=${{ secrets.DOCKER_USERNAME }}
+                EOF
+            - name: Generate test PKI
+              run: bash ./generate_pki.sh
+            - name: Start services
+              run: |
+                docker compose -f docker-compose.yml \
+                -f docker-compose.test.yml \
+                up -d db api
+            - name: Wait for API readiness
+              run: |
+                for i in $(seq 1 30); do
+                if curl -sf --cacert pki/ca/ca.crt \
+                --cert pki/client/client.crt --key pki/client/client.key \
+                https://127.0.0.1:8443/health > /dev/null 2>&1; then
+                echo 'API prête !'
+                exit 0
+                fi
+                echo "Tentative $i/30... en attente"
+                sleep 2
+                done
+                echo 'ERREUR: API non disponible après 60 secondes'
+                docker compose logs
+                exit 1
+            - name: Run integration tests
+              run: |
+                chmod +x ./tests/integration/run_tests.sh
+                ./tests/integration/run_tests.sh
+            - name: Save logs on failure
+              if: failure()
+              run: |
+                docker compose -f docker-compose.yml -f docker-compose.test.yml logs > compose-logs.txt
+            - name: Cleanup
+              if: always()
+              run: docker compose -f docker-compose.yml -f docker-compose.test.yml down --volumes --remove-orphans
+            - name: Upload logs
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                name: integration-test-logs
+                path: compose-logs.txt

@@ -14,6 +14,10 @@ pub async fn run(host: String, port: u64, pool: PgPool, jwt_secret: String) -> a
     tracing_subscriber::fmt().with_env_filter("info").init();
 
     // Charger la config TLS avec vérification du certificat client (mTLS)
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .map_err(|_| anyhow::anyhow!("Rustls crypto provider is already configured"))?;
+
     let tls_config = auth::build_mtls_config().await?;
 
     let state = AppState {
