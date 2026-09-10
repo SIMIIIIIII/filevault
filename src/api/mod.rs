@@ -16,7 +16,7 @@ pub async fn run(host: String, port: u64, pool: PgPool, jwt_secret: String) -> a
     rustls::crypto::ring::default_provider()
         .install_default()
         .map_err(|_| anyhow::anyhow!("Rustls crypto provider is already configured"))?;
-   
+
     let tls_config = auth::build_mtls_config().await?;
 
     let state = AppState {
