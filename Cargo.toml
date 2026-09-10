@@ -24,7 +24,7 @@ tracing-subscriber = {version = "0.3", features = ["env-filter"]}
 jsonwebtoken = "9"
 bcrypt = "0.15"
 chrono = { version = "0.4", features = ["serde"] }
-rand = "0.8"
+rand = "0.10"
 base64 = "0.23.1"
 tokio-util = { version = "0.7.19", features = ["io"] }
 axum-server = { version = "0.7.3", features = ["tls-rustls"] }
