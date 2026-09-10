@@ -19,6 +19,9 @@ assert_eq() {
     fi
 }
 
+TEST_EMAIL="integration-${GITHUB_RUN_ID:-local}-$(date +%s)@example.com"
+TEST_PASSWORD='integration-test-password'
+
 echo '=== Test 1 : Health check ==='
 STATUS=$(curl -sf -o /dev/null -w '%{http_code}' \
     --cacert $CA_CERT --cert $CLIENT_CERT --key $CLIENT_KEY \
@@ -26,12 +29,27 @@ STATUS=$(curl -sf -o /dev/null -w '%{http_code}' \
 
 assert_eq 'GET /health → 200' '200' "$STATUS"
 
+echo '=== Authentification de test ==='
+curl -sf -X POST "$BASE_URL/auth/register" \
+    --cacert "$CA_CERT" \
+    --cert "$CLIENT_CERT" --key "$CLIENT_KEY" \
+    -H 'Content-Type: application/json' \
+    -d "{\"email\":\"$TEST_EMAIL\",\"fullname\":\"Integration Test\",\"username\":\"integration-${GITHUB_RUN_ID:-local}\",\"password\":\"$TEST_PASSWORD\"}" \
+    > /dev/null
+LOGIN_RESPONSE=$(curl -sf -X POST "$BASE_URL/auth/login" \
+    --cacert "$CA_CERT" \
+    --cert "$CLIENT_CERT" --key "$CLIENT_KEY" \
+    -H 'Content-Type: application/json' \
+    -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}")
+TOKEN=$(echo "$LOGIN_RESPONSE" | jq -er '.token')
+
 echo '=== Test 2 : Upload d un fichier ==='
 dd if=/dev/urandom of=/tmp/test-upload.bin bs=1M count=5 2>/dev/null
 EXPECTED_SHA=$(sha256sum /tmp/test-upload.bin | cut -d' ' -f1)
 RESPONSE=$(curl -sf -X POST \
     --cacert $CA_CERT \
     --cert $CLIENT_CERT --key $CLIENT_KEY \
+    -H "Authorization: Bearer $TOKEN" \
     -F 'file=@/tmp/test-upload.bin' \
     $BASE_URL/files)
 RETURNED_SHA=$(echo $RESPONSE | jq -r '.sha256')
@@ -41,12 +59,14 @@ FILE_ID=$(echo $RESPONSE | jq -r '.id')
 echo '=== Test 3 : Liste des fichiers ==='
 STATUS=$(curl -sf -o /dev/null -w '%{http_code}' \
     --cacert $CA_CERT --cert $CLIENT_CERT --key $CLIENT_KEY \
+    -H "Authorization: Bearer $TOKEN" \
     $BASE_URL/files)
 assert_eq 'GET /fichiers → 200' '200' "$STATUS"
 
 echo '=== Test 4 : Download et vérification SHA-256 ==='
 curl -sf --cacert $CA_CERT --cert $CLIENT_CERT --key $CLIENT_KEY \
     -o /tmp/test-download.bin \
+    -H "Authorization: Bearer $TOKEN" \
     $BASE_URL/files/$FILE_ID
 DOWNLOADED_SHA=$(sha256sum /tmp/test-download.bin | cut -d' ' -f1)
 assert_eq 'SHA-256 intégrité download' "$EXPECTED_SHA" "$DOWNLOADED_SHA"
