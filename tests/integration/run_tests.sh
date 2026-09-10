@@ -46,12 +46,18 @@ TOKEN=$(echo "$LOGIN_RESPONSE" | jq -er '.token')
 echo '=== Test 2 : Upload d un fichier ==='
 dd if=/dev/urandom of=/tmp/test-upload.bin bs=1M count=5 2>/dev/null
 EXPECTED_SHA=$(sha256sum /tmp/test-upload.bin | cut -d' ' -f1)
-RESPONSE=$(curl -sf -X POST \
+UPLOAD_STATUS=$(curl -sS -o /tmp/upload-response.json -w '%{http_code}' -X POST \
     --cacert $CA_CERT \
     --cert $CLIENT_CERT --key $CLIENT_KEY \
     -H "Authorization: Bearer $TOKEN" \
     -F 'file=@/tmp/test-upload.bin' \
     $BASE_URL/files)
+if [ "$UPLOAD_STATUS" != '201' ]; then
+    echo "Upload failed with HTTP $UPLOAD_STATUS:"
+    cat /tmp/upload-response.json
+    exit 1
+fi
+RESPONSE=$(cat /tmp/upload-response.json)
 RETURNED_SHA=$(echo $RESPONSE | jq -r '.sha256')
 assert_eq 'SHA-256 intégrité upload' "$EXPECTED_SHA" "$RETURNED_SHA"
 FILE_ID=$(echo $RESPONSE | jq -r '.id')
