@@ -238,7 +238,7 @@ jobs:
               run: |
                 docker compose -f docker-compose.yml \
                 -f docker-compose.test.yml \
-                up -d --wait
+                up -d --wait db api
             - name: Wait for API readiness
               run: |
                 for i in $(seq 1 30); do
