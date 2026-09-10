@@ -102,7 +102,7 @@ jobs:
         name: Build & Push Docker Image
         needs: [lint, test]
         runs-on: ubuntu-latest
-        timeout-minutes: 20
+        timeout-minutes: 30
         outputs:
             image-digest: ${{ steps.build.outputs.digest }}
             image-tag: ${{ steps.meta.outputs.tags }}
@@ -148,8 +148,8 @@ jobs:
               with:
                 context: .
                 file: ./Dockerfile.api
-                platforms: linux/amd64,linux/arm64
-                push: ${{ github.event_name != 'pull_request' }}
+                platforms: linux/amd64
+                push: ${{ github.event_name !='pull_request' }}
                 tags: ${{ steps.meta.outputs.tags }}
                 labels: ${{ steps.meta.outputs.labels }}
                 cache-from: type=gha # read from GitHub cache
