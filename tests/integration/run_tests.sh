@@ -80,7 +80,7 @@ assert_eq 'SHA-256 intégrité download' "$EXPECTED_SHA" "$DOWNLOADED_SHA"
 echo '=== Test 5 : Authentification mTLS ==='
 STATUS=$(curl -sf -o /dev/null -w '%{http_code}' \
     --cacert $CA_CERT \
-    $BASE_URL/files 2>&1 || echo '000')
+    $BASE_URL/files || true)
 assert_eq 'Sans cert client → rejet' '000' "$STATUS"
 
 echo '=== Test 6 : Rate limiting ==='
