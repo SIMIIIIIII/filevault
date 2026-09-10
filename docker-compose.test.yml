@@ -1,0 +1,25 @@
+services:
+  api:
+    image: ${REGISTRY}/filevault:${IMAGE_TAG}
+    build: null
+    ports:
+      - "8443:8081"
+    volumes:
+      - server_files:/app/server_files
+      - log_files:/app/log_files
+      - ./pki:/app/pki:ro
+    environment:
+      DATABASE_URL: postgresql://filevault:${DB_PASSWORD}@db:5432/filevault
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports: []
+
+volumes:
+  server_files:
+  log_files:
