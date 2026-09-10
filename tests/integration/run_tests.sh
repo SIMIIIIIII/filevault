@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -euo pipefail
-BASE_URL='https://localhost:8443'
+BASE_URL='https://127.0.0.1:8443'
 CA_CERT='pki/ca/ca.crt'
 CLIENT_CERT='pki/client/client.crt'
 CLIENT_KEY='pki/client/client.key'
@@ -32,7 +32,7 @@ RESPONSE=$(curl -sf -X POST \
     --cacert $CA_CERT \
     --cert $CLIENT_CERT --key $CLIENT_KEY \
     -F 'file=@/tmp/test-upload.bin' \
-    $BASE_URL/fichiers)
+    $BASE_URL/files)
 RETURNED_SHA=$(echo $RESPONSE | jq -r '.sha256')
 assert_eq 'SHA-256 intégrité upload' "$EXPECTED_SHA" "$RETURNED_SHA"
 FILE_ID=$(echo $RESPONSE | jq -r '.id')
@@ -40,20 +40,20 @@ FILE_ID=$(echo $RESPONSE | jq -r '.id')
 echo '=== Test 3 : Liste des fichiers ==='
 STATUS=$(curl -sf -o /dev/null -w '%{http_code}' \
     --cacert $CA_CERT --cert $CLIENT_CERT --key $CLIENT_KEY \
-    $BASE_URL/fichiers)
+    $BASE_URL/files)
 assert_eq 'GET /fichiers → 200' '200' "$STATUS"
 
 echo '=== Test 4 : Download et vérification SHA-256 ==='
 curl -sf --cacert $CA_CERT --cert $CLIENT_CERT --key $CLIENT_KEY \
     -o /tmp/test-download.bin \
-    $BASE_URL/fichiers/$FILE_ID
+    $BASE_URL/files/$FILE_ID
 DOWNLOADED_SHA=$(sha256sum /tmp/test-download.bin | cut -d' ' -f1)
 assert_eq 'SHA-256 intégrité download' "$EXPECTED_SHA" "$DOWNLOADED_SHA"
 
 echo '=== Test 5 : Authentification mTLS ==='
 STATUS=$(curl -sf -o /dev/null -w '%{http_code}' \
     --cacert $CA_CERT \
-    $BASE_URL/fichiers 2>&1 || echo '000')
+    $BASE_URL/files 2>&1 || echo '000')
 assert_eq 'Sans cert client → rejet' '000' "$STATUS"
 
 echo '=== Test 6 : Rate limiting ==='
