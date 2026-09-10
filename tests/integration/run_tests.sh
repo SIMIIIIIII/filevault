@@ -85,14 +85,15 @@ assert_eq 'Sans cert client → rejet' '000' "$STATUS"
 
 echo '=== Test 6 : Rate limiting ==='
 for i in $(seq 1 110); do
-    curl -sf -o /dev/null --cacert $CA_CERT \
+    curl -sS -o /dev/null --cacert $CA_CERT \
+        -w '%{http_code}\n' \
         --cert $CLIENT_CERT --key $CLIENT_KEY \
-        $BASE_URL/health
+        $BASE_URL/health || true
 done
 
-STATUS=$(curl -sf -o /dev/null -w '%{http_code}' \
+STATUS=$(curl -sS -o /dev/null -w '%{http_code}' \
     --cacert $CA_CERT --cert $CLIENT_CERT --key $CLIENT_KEY \
-    $BASE_URL/health)
+    $BASE_URL/health || true)
 assert_eq 'Rate limit → 429' '429' "$STATUS"
 
 echo ''
