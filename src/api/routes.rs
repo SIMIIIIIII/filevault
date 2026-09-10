@@ -1,5 +1,5 @@
 use axum::{
-    Router, middleware,
+    Router, extract::DefaultBodyLimit, middleware,
     routing::{get, post},
 };
 
@@ -31,5 +31,6 @@ pub fn build_router(state: AppState) -> Router {
         .route("/auth/login", post(login))
         .route("/health", get(health_check))
         .merge(protected_routes)
+        .layer(DefaultBodyLimit::max(100 * 1024 * 1024))
         .with_state(state)
 }
