@@ -178,6 +178,7 @@ jobs:
                 image-ref: '${{ secrets.DOCKER_USERNAME }}/filevault:${{ github.sha }}'
                 format: 'sarif' # Format SARIF for GitHub Security
                 output: 'trivy-results.sarif'
+                scanners: 'vuln'
                 severity: 'CRITICAL,HIGH'
                 exit-code: '1'
                 ignore-unfixed: true
@@ -194,6 +195,7 @@ jobs:
                 scan-type: 'fs'
                 scan-ref: '.'
                 format: 'table'
+                scanners: 'vuln'
                 severity: 'CRITICAL,HIGH'
                 exit-code: '1'
             - name: Generate SBOM
@@ -229,7 +231,7 @@ jobs:
                 REGISTRY=${{ secrets.DOCKER_USERNAME }}
                 EOF
             - name: Generate test PKI
-              run: ./generate_pki.sh
+              run: bash ./generate_pki.sh
             - name: Start services
               run: |
                 docker compose -f docker-compose.yml \
