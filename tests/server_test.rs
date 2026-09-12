@@ -10,7 +10,7 @@ use tokio::{
     fs,
     io::AsyncReadExt,
     net::TcpListener,
-    time::{Instant, sleep},
+    time::{sleep, Instant},
 };
 
 const HOST: &str = "::1";

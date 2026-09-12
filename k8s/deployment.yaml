@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: filevault-api
+  namespace: filevault
+  labels:
+    app: filevault
+    component: api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: filevault
+      component: api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: filevault
+        component: api
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: filevault
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: filevault
+          image: filevault-server:0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8443
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: filevault-secrets
+                  key: database-url
+            - name: RUST_LOG
+              valueFrom:
+                configMapKeyRef:
+                  name: filevault-config
+                  key: log-level
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: filevault-secrets
+                  key: jwt-secret
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 1000m
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 2
+      restartPolicy: Always

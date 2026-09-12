@@ -7,7 +7,7 @@ services:
     volumes:
       - server_files:/app/server_files
       - log_files:/app/log_files
-      - ./pki:/app/pki:ro
+      - ../pki:/app/pki:ro
     environment:
       DATABASE_URL: postgresql://filevault:${DB_PASSWORD_URL}@db:5432/filevault
       JWT_SECRET: ${JWT_SECRET}
@@ -26,7 +26,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports: []
     volumes:
-      - ./migrations:/docker-entrypoint-initdb.d:ro
+      - ../migrations:/docker-entrypoint-initdb.d:ro
 
 volumes:
   server_files:

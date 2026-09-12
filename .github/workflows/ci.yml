@@ -146,7 +146,7 @@ jobs:
               uses: docker/build-push-action@v5
               with:
                 context: .
-                file: ./Dockerfile.api
+                file: ./docker/Dockerfile.api
                 platforms: linux/amd64
                 push: ${{ github.event_name !='pull_request' }}
                 tags: ${{ steps.meta.outputs.tags }}
@@ -239,8 +239,8 @@ jobs:
               run: bash ./generate_pki.sh
             - name: Start services
               run: |
-                docker compose -f docker-compose.yml \
-                -f docker-compose.test.yml \
+                docker compose -f docker/docker-compose.yml \
+                -f docker/docker-compose.test.yml \
                 up -d db api
             - name: Wait for API readiness
               run: |
@@ -255,7 +255,7 @@ jobs:
                 sleep 2
                 done
                 echo 'ERREUR: API non disponible après 60 secondes'
-                docker compose logs
+                docker compose -f docker/docker-compose.yml -f docker/docker-compose.test.yml logs
                 exit 1
             - name: Run integration tests
               run: |
@@ -264,10 +264,10 @@ jobs:
             - name: Save logs on failure
               if: failure()
               run: |
-                docker compose -f docker-compose.yml -f docker-compose.test.yml logs > compose-logs.txt
+                docker compose -f docker/docker-compose.yml -f docker/docker-compose.test.yml logs > compose-logs.txt
             - name: Cleanup
               if: always()
-              run: docker compose -f docker-compose.yml -f docker-compose.test.yml down --volumes --remove-orphans
+              run: docker compose -f docker/docker-compose.yml -f docker/docker-compose.test.yml down --volumes --remove-orphans
             - name: Upload logs
               if: failure()
               uses: actions/upload-artifact@v4

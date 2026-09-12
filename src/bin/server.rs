@@ -2,8 +2,8 @@ use std::{env, path::PathBuf, time::Duration};
 
 use file_vault::{
     cli_helpers::{
-        RuntimeMode, ensure_runtime_directories, get_history_test, map_error, parse_host_port,
-        parse_runtime_mode, runtime_directories,
+        ensure_runtime_directories, get_history_test, map_error, parse_host_port,
+        parse_runtime_mode, runtime_directories, RuntimeMode,
     },
     server::Server,
 };

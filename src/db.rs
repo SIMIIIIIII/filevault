@@ -1,5 +1,5 @@
 use serde::Serialize;
-use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
+use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 
 use crate::{files_vault_errors::FileVaultError, grpc::server::filevault::UploadResponse};
 

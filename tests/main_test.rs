@@ -12,7 +12,7 @@ use tokio::{
     net::TcpListener,
     process::Command,
     sync::{Mutex, OnceCell},
-    time::{Duration, timeout},
+    time::{timeout, Duration},
 };
 
 static FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -175,11 +175,9 @@ async fn test_run_fails_with_no_mode() {
         .await
         .expect("failed to run binary");
     assert!(!output.status.success());
-    assert!(
-        String::from_utf8(output.stderr)
-            .unwrap()
-            .contains("[ERROR]: Usage:")
-    );
+    assert!(String::from_utf8(output.stderr)
+        .unwrap()
+        .contains("[ERROR]: Usage:"));
 }
 
 #[tokio::test]
@@ -190,11 +188,9 @@ async fn test_get_help() {
         .await
         .expect("failed to run binary");
     assert!(!output.status.success());
-    assert!(
-        String::from_utf8(output.stderr)
-            .unwrap()
-            .contains("[ERROR]: Usage:")
-    );
+    assert!(String::from_utf8(output.stderr)
+        .unwrap()
+        .contains("[ERROR]: Usage:"));
 }
 
 #[tokio::test]

@@ -66,13 +66,17 @@ The data model persists file metadata such as name, size, uploader, and timestam
 ```text
 .
 ├── Cargo.toml
-├── docker-compose.yml
-├── Dockerfile.api
-├── Dockerfile.cli
-├── Dockerfile.customer
-├── Dockerfile.server
 ├── Makefile
 ├── README.md
+├── build.rs
+├── docker/
+│   ├── docker-compose.yml
+│   ├── docker-compose.test.yml
+│   ├── Dockerfile.api
+│   ├── Dockerfile.cli
+│   ├── Dockerfile.customer
+│   ├── Dockerfile.grpc
+│   └── Dockerfile.server
 ├── migrations/
 ├── src/
 │   ├── api/

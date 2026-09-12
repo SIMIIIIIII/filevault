@@ -1,0 +1,44 @@
+replicaCount: 3
+
+image:
+  repository: filevault-server
+  tag: "0.1"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8443
+
+ingress:
+  enabled: true
+  host: filevault.prod.local
+  tlsSecretName: filevault-tls
+
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 250m
+  limits:
+    memory: 1Gi
+    cpu: 2000m
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 75
+
+postgresql:
+  enabled: false  # PostgreSQL is managed separately (external DB)
+
+database:
+  # Configure your external PostgreSQL instance
+  host: "postgres.example.com"  # Change to your DB host
+  port: 5432
+  name: "filevault"
+  username: "filevault"
+  # PASSWORD: Set via secrets in your deployment
+
+config:
+  logLevel: warn
+  maxUploadSize: '5368709120'

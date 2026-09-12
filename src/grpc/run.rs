@@ -1,7 +1,7 @@
 use sqlx::{Pool, Postgres};
 use tonic::transport::{Identity, ServerTlsConfig};
 
-use crate::grpc::server::{FileVaultService, filevault::file_vault_server::FileVaultServer};
+use crate::grpc::server::{filevault::file_vault_server::FileVaultServer, FileVaultService};
 
 pub async fn run(
     pool: Pool<Postgres>,

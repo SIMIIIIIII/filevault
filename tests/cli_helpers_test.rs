@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use file_vault::cli_helpers::{
-    RuntimeMode, ensure_runtime_directories, parse_runtime_mode, runtime_directories,
+    ensure_runtime_directories, parse_runtime_mode, runtime_directories, RuntimeMode,
 };
 
 #[test]

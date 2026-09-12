@@ -1,7 +1,7 @@
 [package]
 name = "file_vault"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 default-run = "file_vault"
 
 [workspace]
