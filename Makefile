@@ -58,14 +58,14 @@ bench:
 	cargo bench --bench project_wothout_tokio
 
 db-up:
-	docker compose up -d --wait db
+	docker compose -f docker/docker-compose.yml up -d --wait db
 
 # waits for postgres to accept connections before running commands that need it
 db-wait: db-up
 	until docker exec filevault-db pg_isready -U filevault -d filevault >/dev/null 2>&1; do sleep 1; done
 
 db-down:
-	docker compose stop db
+	docker compose -f docker/docker-compose.yml stop db
 
 migrate: db-wait
 	set -a; . ./.env; set +a; sqlx migrate run
@@ -74,16 +74,16 @@ sqlx-prepare: db-wait
 	set -a; . ./.env; set +a; cargo sqlx prepare -- --all-targets
 
 docker-build:
-	docker compose build
+	docker compose -f docker/docker-compose.yml build
 
 docker-up:
-	docker compose up -d --build
+	docker compose -f docker/docker-compose.yml up -d --build
 
 docker-down:
-	docker compose down
+	docker compose -f docker/docker-compose.yml down
 
 docker-logs:
-	docker compose logs -f
+	docker compose -f docker/docker-compose.yml logs -f
 
 fmt:
 	cargo fmt

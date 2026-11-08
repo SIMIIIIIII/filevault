@@ -66,13 +66,17 @@ The data model persists file metadata such as name, size, uploader, and timestam
 ```text
 .
 ├── Cargo.toml
-├── docker-compose.yml
-├── Dockerfile.api
-├── Dockerfile.cli
-├── Dockerfile.customer
-├── Dockerfile.server
 ├── Makefile
 ├── README.md
+├── build.rs
+├── docker/
+│   ├── docker-compose.yml
+│   ├── docker-compose.test.yml
+│   ├── Dockerfile.api
+│   ├── Dockerfile.cli
+│   ├── Dockerfile.customer
+│   ├── Dockerfile.grpc
+│   └── Dockerfile.server
 ├── migrations/
 ├── src/
 │   ├── api/
@@ -316,6 +320,9 @@ docker compose down
 ```
 
 The API service reads `JWT_SECRET` from the host environment or `.env` file.
+When using the Compose files under `docker/` with an `.env` file at the
+repository root, pass `--env-file .env` explicitly. The integration-test CI job
+does this for startup, logs, and cleanup.
 
 ## Testing
 

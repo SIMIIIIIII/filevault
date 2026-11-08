@@ -1,0 +1,70 @@
+name: CD
+
+on:
+    push:
+        branches:
+            - main
+
+jobs:
+    deploy-k8s:
+        name: Deploy to Kubernetes
+        needs: []  # Jobs de CI (lint, test) doivent passer via branch protection
+        runs-on: ubuntu-latest
+        environment:
+            name: production
+            url: https://filevault.example.com
+        steps:
+            - name: Retrieve the code
+              uses: actions/checkout@v4
+            
+            - name: Setup kubectl
+              uses: azure/setup-kubectl@v3
+            
+            - name: Configure kubectl
+              run: |
+                mkdir -p ~/.kube
+                echo '${{ secrets.KUBECONFIG }}' > ~/.kube/config
+                chmod 600 ~/.kube/config
+                kubectl get nodes
+           
+            - name: Setup Helm
+              uses: azure/setup-helm@v3
+              with:
+                version: 'v3.14.0'
+            
+            - name: Helm dependency update
+              run: helm dependency update ./charts/filevault
+           
+            - name: Helm upgrade --install
+              run: |
+                helm upgrade --install filevault ./charts/filevault \
+                --namespace filevault \
+                --create-namespace \
+                --values charts/filevault/values-prod.yaml \
+                --set image.tag=${{ github.sha }} \
+                --set image.repository=${{ secrets.DOCKER_USERNAME }}/filevault \
+                --atomic \
+                --wait \
+                --timeout 5m \
+                --history-max 10
+            
+            - name: Verify deployment
+              run: |
+                kubectl rollout status deployment/filevault-filevault \
+                -n filevault --timeout=2m
+                # Test smoke post-déploiement
+                kubectl run smoke-test \
+                --image=curlimages/curl:latest \
+                --restart=Never \
+                --rm -it \
+                -n filevault \
+                -- curl -sf http://filevault-filevault:8080/health
+                echo 'Smoke test passé !'
+            
+            - name: Rollback on failure
+              if: failure()
+              run: |
+                echo 'Déploiement échoué — rollback vers la version précédente'
+                helm rollback filevault -n filevault
+                kubectl rollout status deployment/filevault-filevault \
+                -n filevault --timeout=2m

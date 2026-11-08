@@ -2,7 +2,7 @@ use tokio::{
     fs,
     io::AsyncReadExt,
     net::TcpListener,
-    time::{Duration, sleep},
+    time::{sleep, Duration},
 };
 
 use std::{
@@ -199,12 +199,10 @@ async fn test_send_packet_fails_for_connexion() {
 
     assert!(get_sent.is_err());
 
-    assert!(
-        get_sent
-            .unwrap_err()
-            .to_string()
-            .contains("TcpStream connection Error:")
-    );
+    assert!(get_sent
+        .unwrap_err()
+        .to_string()
+        .contains("TcpStream connection Error:"));
 }
 
 #[tokio::test]

@@ -1,4 +1,4 @@
-use crate::api::auth::{Claims, verify_token};
+use crate::api::auth::{verify_token, Claims};
 
 pub fn authenticate_request<T>(
     request: &tonic::Request<T>,

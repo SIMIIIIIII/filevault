@@ -1,8 +1,8 @@
 services:
   server:
     build:
-      context: .
-      dockerfile: Dockerfile.server
+      context: ..
+      dockerfile: docker/Dockerfile.server
     container_name: filevault-server
     ports:
       - "8080:8080"
@@ -27,8 +27,8 @@ services:
 
   api:
     build:
-      context: .
-      dockerfile: Dockerfile.api
+      context: ..
+      dockerfile: docker/Dockerfile.api
     container_name: filevault-api
     ports:
       - "8081:8081"
@@ -55,8 +55,8 @@ services:
 
   grpc:
     build:
-      context: .
-      dockerfile: Dockerfile.grpc
+      context: ..
+      dockerfile: docker/Dockerfile.grpc
     container_name: filevault-grpc
     ports:
       - "8083:8083"
@@ -82,8 +82,8 @@ services:
 
   customer:
     build:
-      context: .
-      dockerfile: Dockerfile.customer
+      context: ..
+      dockerfile: docker/Dockerfile.customer
     depends_on:
       - server
     networks:
@@ -98,8 +98,8 @@ services:
 
   cli:
     build:
-      context: .
-      dockerfile: Dockerfile.cli
+      context: ..
+      dockerfile: docker/Dockerfile.cli
     depends_on:
       - api
     networks:

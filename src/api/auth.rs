@@ -5,7 +5,7 @@ use axum::{
 };
 use axum_server::accept::Accept;
 use axum_server::tls_rustls::{RustlsAcceptor, RustlsConfig};
-use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig};
 use std::future::Future;
@@ -160,10 +160,12 @@ fn extract_client_cn(tls_stream: &TlsStream<TcpStream>) -> Option<String> {
     let (_, server_conn) = tls_stream.get_ref();
     let cert = server_conn.peer_certificates()?.first()?;
     let (_, x509) = x509_parser::parse_x509_certificate(cert.as_ref()).ok()?;
-    x509.subject()
+    let cn = x509
+        .subject()
         .iter_common_name()
         .next()?
         .as_str()
-        .ok()
-        .map(|s| s.to_string())
+        .ok()?
+        .to_string();
+    Some(cn)
 }

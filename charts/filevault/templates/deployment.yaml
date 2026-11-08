@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "filevault.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "filevault.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "filevault.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "filevault.selectorLabels" . | nindent 8 }}
+        version: {{ .Values.image.tag | quote }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.ingress.enabled }}
+          env:
+            - name: PUBLIC_URL
+              value: https://{{ .Values.ingress.host }}
+          {{- end }}  

@@ -146,7 +146,7 @@ jobs:
               uses: docker/build-push-action@v5
               with:
                 context: .
-                file: ./Dockerfile.api
+                file: ./docker/Dockerfile.api
                 platforms: linux/amd64
                 push: ${{ github.event_name !='pull_request' }}
                 tags: ${{ steps.meta.outputs.tags }}
@@ -223,24 +223,43 @@ jobs:
             - name: Retrieve the code
               uses: actions/checkout@v4
             - name: Create .env file
+              id: test_env
               env:
                 DB_PASSWORD_TEST: ${{ secrets.DB_PASSWORD_TEST }}
+                REGISTRY: ${{ secrets.DOCKER_USERNAME }}
+                IMAGE_TAG: ${{ github.sha }}
               run: |
-                JWT_SECRET=$(openssl rand -hex 32)
-                DB_PASSWORD_URL=$(DB_PASSWORD="$DB_PASSWORD_TEST" python3 -c 'import os; from urllib.parse import quote; print(quote(os.environ["DB_PASSWORD"], safe=""))')
-                cat > .env << EOF
-                DB_PASSWORD=$DB_PASSWORD_TEST
-                DB_PASSWORD_URL=$DB_PASSWORD_URL
-                JWT_SECRET=$JWT_SECRET
-                IMAGE_TAG=${{ github.sha }}
-                REGISTRY=${{ secrets.DOCKER_USERNAME }}
-                EOF
+                umask 077
+                python3 - <<'PY'
+                import os
+                import secrets
+                from urllib.parse import quote
+
+                password = os.environ["DB_PASSWORD_TEST"]
+                registry = os.environ["REGISTRY"]
+                if not password or not registry:
+                    raise SystemExit("DB_PASSWORD_TEST and DOCKER_USERNAME secrets must be set")
+
+                values = {
+                    "DB_PASSWORD": password,
+                    "DB_PASSWORD_URL": quote(password, safe=""),
+                    "JWT_SECRET": secrets.token_hex(32),
+                    "IMAGE_TAG": os.environ["IMAGE_TAG"],
+                    "REGISTRY": registry,
+                }
+                with open(".env", "w", encoding="utf-8") as env_file:
+                    for key, value in values.items():
+                        escaped = (value.replace("\\", "\\\\").replace('"', '\\"')
+                                   .replace("$", "$$").replace("\n", "\\n")
+                                   .replace("\r", "\\r").replace("\t", "\\t"))
+                        env_file.write(f'{key}="{escaped}"\n')
+                PY
             - name: Generate test PKI
               run: bash ./generate_pki.sh
             - name: Start services
               run: |
-                docker compose -f docker-compose.yml \
-                -f docker-compose.test.yml \
+                docker compose --env-file .env -f docker/docker-compose.yml \
+                -f docker/docker-compose.test.yml \
                 up -d db api
             - name: Wait for API readiness
               run: |
@@ -255,21 +274,21 @@ jobs:
                 sleep 2
                 done
                 echo 'ERREUR: API non disponible après 60 secondes'
-                docker compose logs
+                docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.test.yml logs
                 exit 1
             - name: Run integration tests
               run: |
                 chmod +x ./tests/integration/run_tests.sh
                 ./tests/integration/run_tests.sh
             - name: Save logs on failure
-              if: failure()
+              if: failure() && steps.test_env.outcome == 'success'
               run: |
-                docker compose -f docker-compose.yml -f docker-compose.test.yml logs > compose-logs.txt
+                docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.test.yml logs > compose-logs.txt
             - name: Cleanup
-              if: always()
-              run: docker compose -f docker-compose.yml -f docker-compose.test.yml down --volumes --remove-orphans
+              if: always() && steps.test_env.outcome == 'success'
+              run: docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.test.yml down --volumes --remove-orphans
             - name: Upload logs
-              if: failure()
+              if: failure() && steps.test_env.outcome == 'success'
               uses: actions/upload-artifact@v4
               with:
                 name: integration-test-logs
