@@ -324,6 +324,32 @@ When using the Compose files under `docker/` with an `.env` file at the
 repository root, pass `--env-file .env` explicitly. The integration-test CI job
 does this for startup, logs, and cleanup.
 
+### Kubernetes deployment
+
+The `Kubernetes deployment (kind)` CI job builds the API image, deploys the
+Helm chart to a temporary cluster with PostgreSQL and test certificates, and
+runs the integration tests through the Kubernetes Service. Configure this job
+as a required status check in the `main` branch protection rules to prevent
+merging before it passes. A production deployment runs only after a successful
+CI run on `main`; GitHub environment protection can require manual approval.
+
+Before deploying, configure the `production` environment secret `KUBECONFIG`
+with a complete kubeconfig whose current context points to a cluster reachable
+from a GitHub-hosted runner. Include credentials and certificates in the
+configuration rather than referring to local files. The cluster must already
+have the following resources in the `filevault` namespace:
+
+- A PostgreSQL database with the SQL migrations applied, and a `db-url` Secret
+  containing `DATABASE_URL`.
+- A `jwt-secret` Secret containing `JWT_SECRET`.
+- A `filevault-pki` Secret containing `ca.crt`, `server.crt` and `server.key`.
+- A `filevault-files` PersistentVolumeClaim for uploaded files.
+
+The chart uses one replica and exposes HTTPS with mutual TLS through a
+ClusterIP Service. It does not create an ingress, provision PostgreSQL, or run
+migrations. `helm upgrade --atomic` handles rollback when an upgrade fails;
+setup failures do not initiate a rollback.
+
 ## Testing
 
 The project includes Rust tests for the API and server layers.
