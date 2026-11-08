@@ -1,15 +1,7 @@
-FileVault {{ .Chart.AppVersion }} installé avec succès !
-Release : {{ .Release.Name }}
-Namespace : {{ .Release.Namespace }}
-Image : {{ .Values.image.repository }}:{{ .Values.image.tag }}
-Replicas : {{ .Values.replicaCount }}
-{{- if .Values.ingress.enabled }}
-Accès externe :
-URL : https://{{ .Values.ingress.host }}
-curl --cacert pki/ca/ca.crt https://{{ .Values.ingress.host }}/health
-{{- else }}
-Port-forward pour accéder à l'API :
-kubectl port-forward svc/{{ include "filevault.fullname" . }} 8443:8443 -n {{ .Release.Namespace
-}}
-curl --cacert pki/ca/ca.crt https://localhost:8443/health
-{{- end }}
+FileVault {{ .Chart.AppVersion }} installed.
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+Access the API with a client certificate:
+  kubectl port-forward svc/{{ include "filevault.fullname" . }} 8443:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+  curl --cacert pki/ca/ca.crt --cert pki/client/client.crt --key pki/client/client.key https://127.0.0.1:8443/health

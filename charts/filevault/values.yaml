@@ -1,18 +1,21 @@
-replicaCount: 2
+replicaCount: 1
 
 image:
   repository: filevault-server
-  tag: "0.1" # Version définie dans les manifests k8s
+  tag: "0.1"
   pullPolicy: IfNotPresent
 
 service:
   type: ClusterIP
   port: 8443
 
-ingress:
-  enabled: true
-  host: filevault.local
-  tlsSecretName: filevault-tls
+secrets:
+  database: db-url
+  jwt: jwt-secret
+  pki: filevault-pki
+
+persistence:
+  existingClaim: ""
 
 resources:
   requests:
@@ -21,17 +24,3 @@ resources:
   limits:
     memory: 512Mi
     cpu: 1000m
-
-autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 70
-
-postgresql:
-  enabled: true
-  storage: 20Gi
-
-config:
-  logLevel: info
-  maxUploadSize: '5368709120'

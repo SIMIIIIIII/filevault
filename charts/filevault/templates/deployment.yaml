@@ -7,6 +7,8 @@ metadata:
     {{- include "filevault.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "filevault.selectorLabels" . | nindent 6 }}
@@ -21,11 +23,46 @@ spec:
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - containerPort: {{ .Values.service.port }}
+            - name: https
+              containerPort: 8081
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.database }}
+                  key: DATABASE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.jwt }}
+                  key: JWT_SECRET
+          readinessProbe:
+            tcpSocket:
+              port: https
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: https
+            initialDelaySeconds: 10
+          volumeMounts:
+            - name: pki
+              mountPath: /app/pki
+              readOnly: true
+            - name: files
+              mountPath: /app/server_files
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.ingress.enabled }}
-          env:
-            - name: PUBLIC_URL
-              value: https://{{ .Values.ingress.host }}
-          {{- end }}  
+      volumes:
+        - name: pki
+          secret:
+            secretName: {{ .Values.secrets.pki }}
+            items:
+              - key: ca.crt
+                path: ca/ca.crt
+              - key: server.crt
+                path: server/server.crt
+              - key: server.key
+                path: server/server.key
+        - name: files
+          persistentVolumeClaim:
+            claimName: {{ required "persistence.existingClaim is required" .Values.persistence.existingClaim }}
