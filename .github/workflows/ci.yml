@@ -25,6 +25,8 @@ jobs:
               run: docker build -f docker/Dockerfile.api -t filevault-kind-ci:local .
             - name: Load image into kind
               run: kind load docker-image filevault-kind-ci:local --name filevault-ci
+            - name: Test port-forward parsing
+              run: bash tests/integration/port_forward_test.sh
             - name: Deploy and exercise the API
               run: bash tests/integration/kubernetes.sh
 

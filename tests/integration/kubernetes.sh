@@ -2,6 +2,7 @@
 set -euo pipefail
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$root/tests/integration/port_forward.sh"
 workdir="$(mktemp -d)"
 namespace="filevault-ci-${GITHUB_RUN_ID:-local}-$$"
 port_forward_pid=""
@@ -114,7 +115,11 @@ kubectl -n "$namespace" rollout status deployment/filevault-filevault --timeout=
 kubectl -n "$namespace" port-forward --address 127.0.0.1 svc/filevault-filevault :8443 > "$workdir/port-forward.log" 2>&1 &
 port_forward_pid=$!
 for i in $(seq 1 30); do
-    port=$(sed -n 's/^Forwarding from 127\.0\.0\.1:\([0-9]*\) -> 8443$/\1/p' "$workdir/port-forward.log" | head -n 1)
+    if ! kill -0 "$port_forward_pid" 2>/dev/null; then
+        echo "kubectl port-forward exited before the API became ready" >&2
+        exit 1
+    fi
+    port=$(forwarded_port "$workdir/port-forward.log")
     if [ -n "$port" ] && curl -sf --cacert pki/ca/ca.crt --cert pki/client/client.crt --key pki/client/client.key \
         "https://127.0.0.1:$port/health" > /dev/null; then
         export BASE_URL="https://127.0.0.1:$port"
