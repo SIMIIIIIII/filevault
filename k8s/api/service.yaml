@@ -12,7 +12,7 @@ spec:
     - name: https
       protocol: TCP
       port: 8443
-      targetPort: 8443
+      targetPort: 8081
     - name: metrics
       protocol: TCP
       port: 9090

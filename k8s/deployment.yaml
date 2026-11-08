@@ -37,7 +37,8 @@ spec:
           image: filevault-server:0.1
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8443
+            - name: https
+              containerPort: 8081
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -62,25 +63,20 @@ spec:
               memory: 512Mi
               cpu: 1000m
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 8080
-              scheme: HTTP
+            tcpSocket:
+              port: 8081
             initialDelaySeconds: 15
             periodSeconds: 10
             failureThreshold: 3
           readinessProbe:
-            httpGet:
-              path: /ready
-              port: 8080
-              scheme: HTTP
+            tcpSocket:
+              port: 8081
             initialDelaySeconds: 5
             periodSeconds: 5
             failureThreshold: 3
           startupProbe:
-            httpGet:
-              path: /health
-              port: 8080
+            tcpSocket:
+              port: 8081
             failureThreshold: 30
             periodSeconds: 2
       restartPolicy: Always

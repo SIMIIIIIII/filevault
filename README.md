@@ -320,6 +320,9 @@ docker compose down
 ```
 
 The API service reads `JWT_SECRET` from the host environment or `.env` file.
+When using the Compose files under `docker/` with an `.env` file at the
+repository root, pass `--env-file .env` explicitly. The integration-test CI job
+does this for startup, logs, and cleanup.
 
 ## Testing
 
