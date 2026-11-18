@@ -200,7 +200,7 @@ jobs:
     name: Terraform Apply (Prod)
     runs-on: ubuntu-latest
     needs: terraform-validate
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: false  # DISABLED: Waiting for Azure AKS cluster setup
     environment:
       name: production
     steps:
