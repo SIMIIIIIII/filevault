@@ -242,11 +242,10 @@ jobs:
 
       - name: Slack Notification (Success)
         if: success()
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
-          payload: |
-            {
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
               "text": "✅ FileVault Production Deployment Successful",
               "blocks": [
                 {
@@ -257,15 +256,14 @@ jobs:
                   }
                 }
               ]
-            }
+            }'
 
       - name: Slack Notification (Failure)
         if: failure()
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
-          payload: |
-            {
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
               "text": "❌ FileVault Production Deployment Failed",
               "blocks": [
                 {
@@ -276,4 +274,4 @@ jobs:
                   }
                 }
               ]
-            }
+            }'
