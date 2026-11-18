@@ -10,10 +10,10 @@ domain      = "filevault.example.com"
 replicas    = 3
 
 tags = {
-  project    = "filevault"
+  project     = "filevault"
   environment = "production"
-  managed-by = "terraform"
-  critical   = "true"
+  managed-by  = "terraform"
+  critical    = "true"
 }
 
 enabled_features = ["api", "metrics", "analytics", "audit-logging"]

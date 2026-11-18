@@ -41,13 +41,13 @@ resource "kubernetes_secret_v1" "tls" {
 
 # Secret applicatif 
 resource "random_password" "db" {
-  count = var.environment != "dev" ? 1 : 0
+  count   = var.environment != "dev" ? 1 : 0
   length  = 32
   special = false
 }
 
 resource "random_password" "jwt" {
-  count = var.environment != "dev" ? 1 : 0
+  count   = var.environment != "dev" ? 1 : 0
   length  = 64
   special = true
 }

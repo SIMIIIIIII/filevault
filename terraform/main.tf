@@ -1,14 +1,14 @@
 terraform {
   required_providers {
-    docker      = { source = "kreuzwerker/docker", version = "~> 3.0" }
-    kubernetes  = { source = "hashicorp/kubernetes", version = "~> 3.5" }
-    helm        = { source = "hashicorp/helm", version = "~> 3.3" }
-    random      = { source = "hashicorp/random", version = "~> 3.0" }
+    docker     = { source = "kreuzwerker/docker", version = "~> 3.0" }
+    kubernetes = { source = "hashicorp/kubernetes", version = "~> 3.5" }
+    helm       = { source = "hashicorp/helm", version = "~> 3.3" }
+    random     = { source = "hashicorp/random", version = "~> 3.0" }
   }
 }
 
 provider "docker" {
-  host = "unix:///var/run/docker.sock"
+  host = var.environment == "dev" ? "unix:///var/run/docker.sock" : "null://"
 }
 
 # IMPORTANT: These resources only apply to dev environment

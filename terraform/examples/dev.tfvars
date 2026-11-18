@@ -9,9 +9,9 @@ domain      = "filevault.local"
 replicas    = 1
 
 tags = {
-  project    = "filevault"
+  project     = "filevault"
   environment = "development"
-  managed-by = "terraform"
+  managed-by  = "terraform"
 }
 
 enabled_features = ["api", "metrics"]
