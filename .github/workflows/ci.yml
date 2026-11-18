@@ -122,6 +122,7 @@ jobs:
         needs: [lint, test]
         runs-on: ubuntu-latest
         timeout-minutes: 30
+        if: github.actor != 'dependabot[bot]'
         outputs:
             image-digest: ${{ steps.build.outputs.digest }}
             image-tag: ${{ steps.meta.outputs.tags }}
@@ -182,7 +183,7 @@ jobs:
 
     security-scan:
         name: Security Scan (Trivy)
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.actor != 'dependabot[bot]'
         needs: build-push
         runs-on: ubuntu-latest
         permissions:
@@ -235,7 +236,7 @@ jobs:
 
     integration-tests:
         name: Integration Tests (E2E)
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.actor != 'dependabot[bot]'
         needs: build-push
         runs-on: ubuntu-latest
         timeout-minutes: 15
