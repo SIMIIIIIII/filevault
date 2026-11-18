@@ -252,9 +252,15 @@ jobs:
           kubectl get ingress -n filevault
 
       - name: Slack Notification (Success)
-        if: success() && secrets.SLACK_WEBHOOK != ''
+        if: success()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         run: |
-          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+          if [ -z "$SLACK_WEBHOOK" ]; then
+            echo "⚠️  SLACK_WEBHOOK not configured, skipping notification"
+            exit 0
+          fi
+          curl -X POST "$SLACK_WEBHOOK" \
             -H 'Content-Type: application/json' \
             -d "{
               \"text\": \"✅ FileVault Production Deployment Successful\",
@@ -270,9 +276,15 @@ jobs:
             }"
 
       - name: Slack Notification (Failure)
-        if: failure() && secrets.SLACK_WEBHOOK != ''
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         run: |
-          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+          if [ -z "$SLACK_WEBHOOK" ]; then
+            echo "⚠️  SLACK_WEBHOOK not configured, skipping notification"
+            exit 0
+          fi
+          curl -X POST "$SLACK_WEBHOOK" \
             -H 'Content-Type: application/json' \
             -d "{
               \"text\": \"❌ FileVault Production Deployment Failed\",
