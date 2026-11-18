@@ -1,11 +1,13 @@
 #!/bin/bash
 
 set -euo pipefail
-BASE_URL='https://127.0.0.1:8443'
+BASE_URL="${BASE_URL:-https://127.0.0.1:8443}"
 CA_CERT='pki/ca/ca.crt'
 CLIENT_CERT='pki/client/client.crt'
 CLIENT_KEY='pki/client/client.key'
 PASS=0; FAIL=0
+WORKDIR=$(mktemp -d)
+trap 'rm -f "$WORKDIR/test-upload.bin" "$WORKDIR/upload-response.json" "$WORKDIR/test-download.bin"; rmdir "$WORKDIR"' EXIT
 
 assert_eq() {
     local desc=$1 expected=$2 actual=$3
@@ -44,20 +46,20 @@ LOGIN_RESPONSE=$(curl -sf -X POST "$BASE_URL/auth/login" \
 TOKEN=$(echo "$LOGIN_RESPONSE" | jq -er '.token')
 
 echo '=== Test 2 : Upload d un fichier ==='
-dd if=/dev/urandom of=/tmp/test-upload.bin bs=1M count=5 2>/dev/null
-EXPECTED_SHA=$(sha256sum /tmp/test-upload.bin | cut -d' ' -f1)
-UPLOAD_STATUS=$(curl -sS -o /tmp/upload-response.json -w '%{http_code}' -X POST \
+dd if=/dev/urandom of="$WORKDIR/test-upload.bin" bs=1M count=5 2>/dev/null
+EXPECTED_SHA=$(sha256sum "$WORKDIR/test-upload.bin" | cut -d' ' -f1)
+UPLOAD_STATUS=$(curl -sS -o "$WORKDIR/upload-response.json" -w '%{http_code}' -X POST \
     --cacert $CA_CERT \
     --cert $CLIENT_CERT --key $CLIENT_KEY \
     -H "Authorization: Bearer $TOKEN" \
-    -F 'file=@/tmp/test-upload.bin' \
+    -F "file=@$WORKDIR/test-upload.bin" \
     $BASE_URL/files)
 if [ "$UPLOAD_STATUS" != '201' ]; then
     echo "Upload failed with HTTP $UPLOAD_STATUS:"
-    cat /tmp/upload-response.json
+    cat "$WORKDIR/upload-response.json"
     exit 1
 fi
-RESPONSE=$(cat /tmp/upload-response.json)
+RESPONSE=$(cat "$WORKDIR/upload-response.json")
 RETURNED_SHA=$(echo $RESPONSE | jq -r '.sha256')
 assert_eq 'SHA-256 intégrité upload' "$EXPECTED_SHA" "$RETURNED_SHA"
 FILE_ID=$(echo $RESPONSE | jq -r '.id')
@@ -71,10 +73,10 @@ assert_eq 'GET /fichiers → 200' '200' "$STATUS"
 
 echo '=== Test 4 : Download et vérification SHA-256 ==='
 curl -sf --cacert $CA_CERT --cert $CLIENT_CERT --key $CLIENT_KEY \
-    -o /tmp/test-download.bin \
+    -o "$WORKDIR/test-download.bin" \
     -H "Authorization: Bearer $TOKEN" \
     $BASE_URL/files/$FILE_ID
-DOWNLOADED_SHA=$(sha256sum /tmp/test-download.bin | cut -d' ' -f1)
+DOWNLOADED_SHA=$(sha256sum "$WORKDIR/test-download.bin" | cut -d' ' -f1)
 assert_eq 'SHA-256 intégrité download' "$EXPECTED_SHA" "$DOWNLOADED_SHA"
 
 echo '=== Test 5 : Authentification mTLS ==='

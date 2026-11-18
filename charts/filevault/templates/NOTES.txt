@@ -1,0 +1,7 @@
+FileVault {{ .Chart.AppVersion }} installed.
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+Access the API with a client certificate:
+  kubectl port-forward svc/{{ include "filevault.fullname" . }} 8443:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+  curl --cacert pki/ca/ca.crt --cert pki/client/client.crt --key pki/client/client.key https://127.0.0.1:8443/health

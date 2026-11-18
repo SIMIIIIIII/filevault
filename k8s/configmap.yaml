@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filevault-config
+  namespace: filevault
+data:
+  log-level: 'info'
+  max-upload-size: '5368709120'
+  allowed-mime-types: 'application/pdf,image/jpeg,image/png'
+  nginx.conf: |
+    server {
+    listen 80;
+    location /health { return 200 'ok'; }
+    }

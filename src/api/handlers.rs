@@ -1,9 +1,9 @@
 use axum::{
-    Extension, Json,
     body::Body,
     extract::{Multipart, Path as Path_axum, State},
-    http::{HeaderMap, StatusCode, header},
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
+    Extension, Json,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -17,7 +17,7 @@ use tokio_util::io::ReaderStream;
 
 use crate::{
     api::{
-        auth::{Claims, generate_token},
+        auth::{generate_token, Claims},
         state::AppState,
     },
     db::File,

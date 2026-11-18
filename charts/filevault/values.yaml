@@ -1,0 +1,26 @@
+replicaCount: 1
+
+image:
+  repository: filevault-server
+  tag: "0.1"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8443
+
+secrets:
+  database: db-url
+  jwt: jwt-secret
+  pki: filevault-pki
+
+persistence:
+  existingClaim: ""
+
+resources:
+  requests:
+    memory: 128Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 1000m
