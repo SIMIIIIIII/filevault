@@ -1,5 +1,6 @@
 syntax = "proto3";
 package filevault;
+option go_package = "github.com/SIMIIIII/filevault/api-gateway/filevault";
 
 // Enum
 enum Status {
