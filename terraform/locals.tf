@@ -11,6 +11,4 @@ locals {
   }
   # Décision de nombre de replicas
   replicas = var.environment == "prod" ? 3 : 1
-  # Base64 encode du certificat CA - only load for non-dev environments
-  ca_cert_b64 = var.environment != "dev" ? filebase64("${path.module}/../pki/ca/ca.crt") : ""
 }
