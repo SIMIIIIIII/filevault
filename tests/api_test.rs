@@ -11,9 +11,9 @@ mod tests {
     };
 
     use axum::{
-        Router,
         body::Body,
         http::{Request, StatusCode},
+        Router,
     };
     use tower::util::ServiceExt;
     use tower_http::trace::TraceLayer;

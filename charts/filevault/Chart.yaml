@@ -1,0 +1,14 @@
+apiVersion: v2
+name: filevault
+description: FileVault — Serveur de transfert de fichiers sécurisé
+type: application
+version: 1.0.0
+appVersion: '2.0.0'
+keywords:
+  - filevault
+  - file-transfer
+  - rust
+maintainers:
+  - name: SIMIIIII
+    email: simeonlama00@gmail.com
+dependencies: []
