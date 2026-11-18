@@ -207,6 +207,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Verify required secrets
+        run: |
+          test -n "${{ secrets.KUBECONFIG }}" || { echo "::error::KUBECONFIG secret is missing"; exit 1; }
+          test -n "${{ secrets.PROD_DOMAIN }}" || { echo "::error::PROD_DOMAIN secret is missing"; exit 1; }
+          test -n "${{ secrets.PROD_DB_PASSWORD }}" || { echo "::error::PROD_DB_PASSWORD secret is missing"; exit 1; }
+          test -n "${{ secrets.REGISTRY_URL }}" || { echo "::error::REGISTRY_URL secret is missing"; exit 1; }
+          echo "✅ All required secrets are configured"
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -244,7 +252,7 @@ jobs:
           kubectl get ingress -n filevault
 
       - name: Slack Notification (Success)
-        if: success()
+        if: success() && secrets.SLACK_WEBHOOK != ''
         run: |
           curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
             -H 'Content-Type: application/json' \
@@ -262,7 +270,7 @@ jobs:
             }"
 
       - name: Slack Notification (Failure)
-        if: failure()
+        if: failure() && secrets.SLACK_WEBHOOK != ''
         run: |
           curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
             -H 'Content-Type: application/json' \
