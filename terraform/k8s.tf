@@ -34,8 +34,8 @@ resource "kubernetes_secret_v1" "tls" {
   }
   type = "kubernetes.io/tls"
   data = {
-    "tls.crt" = file("../pki/server/server.crt")
-    "tls.key" = file("../pki/server/server.key")
+    "tls.crt" = fileexists("${path.module}/../pki/server/server.crt") ? file("${path.module}/../pki/server/server.crt") : ""
+    "tls.key" = fileexists("${path.module}/../pki/server/server.key") ? file("${path.module}/../pki/server/server.key") : ""
   }
 }
 
