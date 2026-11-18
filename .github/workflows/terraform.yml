@@ -175,12 +175,15 @@ jobs:
       - name: Comment PR with Plan
         uses: actions/github-script@v7
         if: github.event_name == 'pull_request'
+        env:
+          TF_WORKING_DIR: ${{ env.TF_WORKING_DIR }}
         with:
           script: |
             const { execSync } = require('child_process');
+            const tfWorkingDir = process.env.TF_WORKING_DIR;
             
             try {
-              const plan = execSync('cd ${{ env.TF_WORKING_DIR }} && terraform show -no-color prod.tfplan', { encoding: 'utf8' });
+              const plan = execSync(`cd ${tfWorkingDir} && terraform show -no-color prod.tfplan`, { encoding: 'utf8' });
               const planText = plan.length > 65536 ? plan.substring(0, 65536) + '\n... (truncated)' : plan;
               
               github.rest.issues.createComment({
@@ -245,33 +248,33 @@ jobs:
         run: |
           curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
             -H 'Content-Type: application/json' \
-            -d '{
-              "text": "✅ FileVault Production Deployment Successful",
-              "blocks": [
+            -d "{
+              \"text\": \"✅ FileVault Production Deployment Successful\",
+              \"blocks\": [
                 {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*FileVault Prod Deployment*\n*Status:* ✅ Success\n*Branch:* main\n*Commit:* ${{ github.sha }}\n*URL:* https://${{ secrets.PROD_DOMAIN }}"
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"*FileVault Prod Deployment*\\n*Status:* ✅ Success\\n*Branch:* main\\n*Commit:* ${{ github.sha }}\\n*URL:* https://${{ secrets.PROD_DOMAIN }}\"
                   }
                 }
               ]
-            }'
+            }"
 
       - name: Slack Notification (Failure)
         if: failure()
         run: |
           curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
             -H 'Content-Type: application/json' \
-            -d '{
-              "text": "❌ FileVault Production Deployment Failed",
-              "blocks": [
+            -d "{
+              \"text\": \"❌ FileVault Production Deployment Failed\",
+              \"blocks\": [
                 {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*FileVault Prod Deployment*\n*Status:* ❌ Failed\n*Branch:* main\n*Commit:* ${{ github.sha }}"
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"*FileVault Prod Deployment*\\n*Status:* ❌ Failed\\n*Branch:* main\\n*Commit:* ${{ github.sha }}\"
                   }
                 }
               ]
-            }'
+            }"
