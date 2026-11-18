@@ -28,7 +28,7 @@ jobs:
 
             - name: Check that the tested revision is still main
               id: revision
-              uses: actions/github-script@v7
+              uses: actions/github-script@v9
               with:
                 script: |
                   const ref = await github.rest.git.getRef({
