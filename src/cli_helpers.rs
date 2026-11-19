@@ -20,18 +20,26 @@ pub enum RuntimeMode {
     Test,
 }
 
-pub fn parse_runtime_mode(args: Vec<String>) -> (RuntimeMode, Vec<String>) {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExecutionMode {
+    Default,
+    Grpc,
+}
+
+pub fn parse_runtime_mode(args: Vec<String>) -> (RuntimeMode, ExecutionMode, Vec<String>) {
     let mut filtered = Vec::with_capacity(args.len());
     let mut runtime_mode = RuntimeMode::Production;
+    let mut execution_mode = ExecutionMode::Default;
 
     for argument in args {
         match argument.as_str() {
             "--test" | "--tests" | "--test-mode" => runtime_mode = RuntimeMode::Test,
+            "--grpc" => execution_mode = ExecutionMode::Grpc,
             _ => filtered.push(argument),
         }
     }
 
-    (runtime_mode, filtered)
+    (runtime_mode, execution_mode, filtered)
 }
 
 pub fn runtime_directories(runtime_mode: RuntimeMode) -> (PathBuf, PathBuf) {
@@ -367,6 +375,8 @@ pub fn usage() -> String {
         "Usage:",
         "  cargo run -- --test hostname port",
         "  cargo run -- hostname port",
+        "  cargo run -- --grpc hostname port",
+        "  cargo run -- grpc hostname port",
         "  cargo run -- server hostname port",
         "  cargo run -- filevault --methode POST hostname port --filename file [--root root]",
         "  cargo run -- filevault methode GET hostname port",

@@ -1,5 +1,6 @@
 .PHONY: help build build-release run-server run-api test test-api test-server coverage bench \
-	db-up db-down db-wait migrate sqlx-prepare docker-up docker-down docker-build docker-logs clean fmt lint
+	db-up db-down db-wait migrate sqlx-prepare docker-up docker-down docker-build docker-logs clean fmt lint \
+	gateway-build gateway-run gateway-fmt gateway-lint gateway-test gateway-mod-tidy
 
 help:
 	@echo "Available targets:"
@@ -23,6 +24,14 @@ help:
 	@echo "  fmt             - cargo fmt"
 	@echo "  lint            - cargo clippy"
 	@echo "  clean           - cargo clean"
+	@echo ""
+	@echo "API Gateway (Go) targets:"
+	@echo "  gateway-build   - build api-gateway binary (cd api-gateway && go build)"
+	@echo "  gateway-run     - run api-gateway (cd api-gateway && go run .)"
+	@echo "  gateway-test    - run api-gateway tests (cd api-gateway && go test ./...)"
+	@echo "  gateway-fmt     - format api-gateway code (cd api-gateway && go fmt ./...)"
+	@echo "  gateway-lint    - lint api-gateway code (cd api-gateway && golangci-lint run)"
+	@echo "  gateway-mod-tidy - tidy api-gateway go.mod (cd api-gateway && go mod tidy)"
 
 HOST ?= ::
 PORT ?= 8080
@@ -93,3 +102,22 @@ lint:
 
 clean:
 	cargo clean
+
+# API Gateway (Go) targets
+gateway-build:
+	cd api-gateway && go build -o ../bin/api-gateway
+
+gateway-run:
+	cd api-gateway && go run .
+
+gateway-test:
+	cd api-gateway && go test ./...
+
+gateway-fmt:
+	cd api-gateway && go fmt ./...
+
+gateway-lint:
+	cd api-gateway && golangci-lint run
+
+gateway-mod-tidy:
+	cd api-gateway && go mod tidy
