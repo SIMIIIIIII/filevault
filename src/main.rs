@@ -5,7 +5,7 @@ use file_vault::{
     cli_helpers::{
         ensure_runtime_directories, get_history_test, map_error, parse_host_port,
         parse_host_port_with_first, parse_runtime_mode, run_get_mode, run_legacy_mode,
-        runtime_directories, usage, RuntimeMode, ExecutionMode,
+        runtime_directories, usage, ExecutionMode, RuntimeMode,
     },
     db,
     grpc::run,
@@ -31,9 +31,7 @@ async fn run() -> Result<(), String> {
     if execution_mode == ExecutionMode::Grpc {
         let (host, port) = parse_host_port(args)?;
         let pool = db::connexion_db(None).await.map_err(|e| {
-            map_error(
-                file_vault::files_vault_errors::FileVaultError::DatabaseError(e.to_string()),
-            )
+            map_error(file_vault::files_vault_errors::FileVaultError::DatabaseError(e.to_string()))
         })?;
 
         let jwt_secret =
