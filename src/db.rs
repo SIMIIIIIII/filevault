@@ -94,7 +94,7 @@ pub async fn update_nb_download(
         file_id,
         user_id
     )
-    .fetch_one(&mut *tx)
+    .execute(&mut *tx)
     .await?;
 
     tx.commit().await?;

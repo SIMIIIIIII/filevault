@@ -101,7 +101,11 @@ impl FileVault for FileVaultService {
         let mut hasher = sha2::Sha256::new();
 
         let mut my_file = MyFile {
-            file: fs::File::create_new("test")
+            file: fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open("test")
                 .await
                 .map_err(|e| Status::internal(e.to_string()))?,
             file_path: "test".to_string(),
@@ -121,8 +125,13 @@ impl FileVault for FileVaultService {
 
                     let file_path = Path::new("server_files").join(&safe_name);
 
-                    let _ = fs::remove_file(my_file.file_path).await;
-                    let file_disc = fs::File::create(&file_path)
+                    let _ = fs::remove_file(&my_file.file_path).await;
+                    // Allow overwriting by using File::create with truncate
+                    let file_disc = fs::OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(&file_path)
                         .await
                         .map_err(|e| Status::internal(e.to_string()))?;
 

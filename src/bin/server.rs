@@ -20,7 +20,7 @@ async fn main() {
 
 async fn run() -> Result<(), String> {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    let (runtime_mode, args) = parse_runtime_mode(args);
+    let (runtime_mode, _execution_mode, args) = parse_runtime_mode(args);
 
     ensure_runtime_directories(runtime_mode).await?;
 

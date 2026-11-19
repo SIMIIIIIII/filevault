@@ -35,14 +35,39 @@ pub async fn run(
     let identity = Identity::from_pem(cert, key);
     let tls_config = ServerTlsConfig::new().identity(identity);
 
-    println!("[SERVER] : grcp stated on {addr} ");
-    tonic::transport::Server::builder()
-        .tls_config(tls_config)
-        .map_err(|e| e.to_string())?
+    let mut server = configure_tls(tls_config)?;
+    println!("[SERVER]: starting grpc on {addr}");
+    server
         .add_service(FileVaultServer::new(service))
         .serve(addr)
         .await
         .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+fn configure_tls(tls_config: ServerTlsConfig) -> Result<tonic::transport::Server, String> {
+    if rustls::crypto::CryptoProvider::get_default().is_none()
+        && rustls::crypto::ring::default_provider()
+            .install_default()
+            .is_err()
+        && rustls::crypto::CryptoProvider::get_default().is_none()
+    {
+        return Err("Failed to configure the Rustls crypto provider".to_string());
+    }
+
+    tonic::transport::Server::builder()
+        .tls_config(tls_config)
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_identity_returns_error_instead_of_crypto_provider_panic() {
+        let tls_config = ServerTlsConfig::new().identity(Identity::from_pem("", ""));
+        assert!(configure_tls(tls_config).is_err());
+    }
 }
