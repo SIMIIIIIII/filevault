@@ -20,11 +20,15 @@ use crate::db::{
     check_user, delete_file, get_all_files, get_file, insert_file, new_user, update_nb_download,
 };
 use crate::grpc::auth::authenticate_request;
+use crate::kafka::handlers::Transaction;
+use crate::kafka::producer::FileEvent;
 
 pub struct FileVaultService {
     pub pool: sqlx::PgPool,
     pub jwt_secret: String,
     pub max_upload_bytes: u64,
+    pub transaction: Transaction,
+    //pub kafka: KafkaProducer,
 }
 
 pub struct MyFile {
@@ -86,6 +90,20 @@ impl FileVault for FileVaultService {
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
+        tokio::spawn({
+            let event = FileEvent::Deleted {
+                user_id,
+                file_id: file_id as i64,
+                deleted_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            };
+            let transaction = self.transaction.clone();
+            async move {
+                if let Err(e) = transaction.push(event).await {
+                    tracing::error!(err = %e, "Kafka publish error");
+                }
+            }
+        });
+
         Ok(Response::new(DeleteResponse { succes: true }))
     }
 
@@ -101,7 +119,11 @@ impl FileVault for FileVaultService {
         let mut hasher = sha2::Sha256::new();
 
         let mut my_file = MyFile {
-            file: fs::File::create_new("test")
+            file: fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open("test")
                 .await
                 .map_err(|e| Status::internal(e.to_string()))?,
             file_path: "test".to_string(),
@@ -121,8 +143,13 @@ impl FileVault for FileVaultService {
 
                     let file_path = Path::new("server_files").join(&safe_name);
 
-                    let _ = fs::remove_file(my_file.file_path).await;
-                    let file_disc = fs::File::create(&file_path)
+                    let _ = fs::remove_file(&my_file.file_path).await;
+                    // Allow overwriting by using File::create with truncate
+                    let file_disc = fs::OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(&file_path)
                         .await
                         .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -182,6 +209,20 @@ impl FileVault for FileVaultService {
 
         tracing::info!(octets = total_bytes, sha256 = sha256, "Upload done");
 
+        tokio::spawn({
+            let event = FileEvent::Uploaded {
+                file_id: res.id,
+                user_id,
+                uploaded_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            };
+            let transaction = self.transaction.clone();
+            async move {
+                if let Err(e) = transaction.push(event).await {
+                    tracing::error!(err = %e, "Kafka publish error");
+                }
+            }
+        });
+
         Ok(Response::new(res))
     }
 
@@ -198,6 +239,19 @@ impl FileVault for FileVaultService {
 
         let token = generate_token(user.id as i64, &self.jwt_secret.to_string())
             .map_err(|error| Status::internal(error.to_string()))?;
+
+        tokio::spawn({
+            let event = FileEvent::Logged {
+                user_id: user.id as i64,
+                logged_in_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            };
+            let transaction = self.transaction.clone();
+            async move {
+                if let Err(e) = transaction.push(event).await {
+                    tracing::error!(err = %e, "Kafka publish error");
+                }
+            }
+        });
 
         Ok(Response::new(LoginResponse { token }))
     }
@@ -272,6 +326,20 @@ impl FileVault for FileVaultService {
             yield DataChunk { data: vec![], offset, last: true };
 
         };
+
+        tokio::spawn({
+            let event = FileEvent::Deleted {
+                user_id,
+                file_id,
+                deleted_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            };
+            let transaction = self.transaction.clone();
+            async move {
+                if let Err(e) = transaction.push(event).await {
+                    tracing::error!(err = %e, "Kafka publish error");
+                }
+            }
+        });
 
         Ok(Response::new(Box::pin(stream)))
     }

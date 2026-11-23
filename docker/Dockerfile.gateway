@@ -1,0 +1,30 @@
+# Build stage
+FROM golang:1.26-alpine AS builder
+
+RUN apk add --no-cache git protobuf-dev
+
+WORKDIR /app
+
+COPY api-gateway/go.mod api-gateway/go.sum ./
+RUN go mod download
+
+COPY api-gateway/main.go ./
+COPY api-gateway/internal ./internal
+COPY api-gateway/filevault ./filevault
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o filedrop .
+
+# Runtime stage
+FROM alpine:latest
+
+RUN apk add --no-cache ca-certificates netcat-openbsd
+
+WORKDIR /app
+
+COPY --from=builder /app/filedrop .
+COPY pki /app/pki
+
+EXPOSE 8086
+
+ENTRYPOINT ["./filedrop"]
+CMD ["-host", "0.0.0.0", "-port", "8086"]

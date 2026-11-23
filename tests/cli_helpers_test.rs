@@ -7,7 +7,7 @@ use file_vault::cli_helpers::{
 
 #[test]
 fn test_parse_runtime_mode() {
-    let (runtime_mode, args) = parse_runtime_mode(vec![
+    let (runtime_mode, _execution_mode, args) = parse_runtime_mode(vec![
         "--test".to_string(),
         "localhost".to_string(),
         "8080".to_string(),

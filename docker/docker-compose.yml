@@ -112,6 +112,29 @@ services:
       retries: 3
       start_period: 5s
 
+  gateway:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gateway
+    container_name: filevault-gateway
+    ports:
+      - "8086:8086"
+    volumes:
+      - ./pki:/app/pki:ro
+    depends_on:
+      grpc:
+        condition: service_healthy
+    networks:
+      - filevault-net
+    command: ["-host", "0.0.0.0", "-port", "8086"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8086 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
   db:
     image: postgres:16
     container_name: filevault-db

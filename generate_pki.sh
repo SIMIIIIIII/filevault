@@ -65,7 +65,7 @@ openssl req -new -x509 -sha384 -days 3650 \
 
 ######### 2. SERVER CERTIFICAT ########
 echo '=== Certificat server ==='
-create_leaf_cert "server" "filevault.local" "serverAuth" "DNS:filevault.local,DNS:localhost,IP:127.0.0.1"
+create_leaf_cert "server" "filevault.local" "serverAuth" "DNS:filevault.local,DNS:localhost,IP:127.0.0.1,IP:::1"
 
 ######### 3. CLIENT CERTIFICAT ########
 echo '=== Certificat client CLI ==='
