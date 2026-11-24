@@ -377,6 +377,8 @@ pub fn usage() -> String {
         "=== TCP Server & Client ===",
         "  cargo run -- --test hostname port",
         "  cargo run -- hostname port",
+        "  cargo run -- --grpc hostname port",
+        "  cargo run -- grpc hostname port",
         "  cargo run -- server hostname port",
         "  cargo run -- filevault --methode POST hostname port --filename file [--root root]",
         "  cargo run -- filevault methode GET hostname port",
