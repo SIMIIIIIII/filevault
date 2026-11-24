@@ -1,6 +1,6 @@
 module github.com/SIMIIIII/api-gateway
 
-go 1.26
+go 1.27.4
 
 require (
 	google.golang.org/grpc v1.85.0
@@ -8,7 +8,6 @@ require (
 )
 
 require (
-	github.com/go-chi/chi/v5 v5.5.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect

@@ -37,7 +37,7 @@ async fn run() -> Result<(), String> {
         let jwt_secret =
             env::var("JWT_SECRET").map_err(|_| "JWT_SECRET wasn't defined".to_string())?;
 
-        return run::run(pool, host, port, jwt_secret).await;
+        return run::run(pool, host, port, jwt_secret, runtime_mode).await;
     }
 
     let mut args = args.into_iter();
@@ -71,7 +71,7 @@ async fn run() -> Result<(), String> {
             let jwt_secret =
                 env::var("JWT_SECRET").map_err(|_| "JWT_SECRET wasn't defined".to_string())?;
 
-            run::run(pool, host, port, jwt_secret).await?;
+            run::run(pool, host, port, jwt_secret, runtime_mode).await?;
 
             Ok(())
         }

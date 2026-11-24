@@ -5,6 +5,9 @@ RUN apt-get update && apt-get install -y \
     protobuf-compiler \
     pkg-config \
     libssl-dev \
+    cmake \
+    libcurl4-openssl-dev \
+    libsasl2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

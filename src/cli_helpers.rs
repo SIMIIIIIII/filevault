@@ -373,6 +373,8 @@ fn print_production_help() {
 pub fn usage() -> String {
     [
         "Usage:",
+        "",
+        "=== TCP Server & Client ===",
         "  cargo run -- --test hostname port",
         "  cargo run -- hostname port",
         "  cargo run -- --grpc hostname port",
@@ -382,6 +384,17 @@ pub fn usage() -> String {
         "  cargo run -- filevault methode GET hostname port",
         "  cargo run -- customer --methode POST hostname port --filename file [--root root]",
         "  cargo run -- customer methode GET hostname port",
+        "",
+        "=== gRPC Gateway ===",
+        "  cargo run -- --grpc hostname port",
+        "  cargo run -- grpc hostname port",
+        "",
+        "=== Kafka (Docker) ===",
+        "  docker compose -f docker/docker-compose.kafka.yml up -d          # Start Kafka + Redpanda Console",
+        "  docker compose -f docker/docker-compose.kafka.yml down           # Stop Kafka",
+        "  docker compose -f docker/docker-compose.kafka.yml logs -f kafka  # View Kafka logs",
+        "  docker exec kafka kafka-topics --list --bootstrap-server localhost:9092",
+        "",
         "Interactive commands: POST filename [--root root], reconnect, help, help prod, exit",
     ]
     .join("\n")

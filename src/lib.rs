@@ -5,5 +5,6 @@ pub mod db;
 pub mod files;
 pub mod files_vault_errors;
 pub mod grpc;
+pub mod kafka;
 pub mod protocole;
 pub mod server;

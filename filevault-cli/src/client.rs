@@ -9,8 +9,8 @@ pub struct File {
     pub id: i64,
     pub name: String,
     pub size: i64,
-    pub created_at: String,
-    pub file_path: String,
+    //pub created_at: String,
+    //pub file_path: String,
 }
 
 #[derive(Deserialize, Debug)]
