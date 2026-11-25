@@ -3,8 +3,9 @@ use tokio::sync::mpsc;
 use tonic::transport::{Identity, ServerTlsConfig};
 
 use crate::{
+    cache::redis_cache::RedisCache,
     cli_helpers::RuntimeMode,
-    grpc::server::{filevault::file_vault_server::FileVaultServer, FileVaultService},
+    grpc::server::{FileVaultService, filevault::file_vault_server::FileVaultServer},
     kafka::{consumer::KafkaConsumer, handlers::Transaction, producer::KafkaProducer},
 };
 
@@ -19,13 +20,23 @@ pub async fn run(
         .parse::<std::net::SocketAddr>()
         .map_err(|e| e.to_string())?;
 
-    let kafka = KafkaProducer::new("localhost:9094", "file-events").map_err(|e| e.to_string())?;
+    let kafka_producer =
+        KafkaProducer::new("localhost:9094", "file-events").map_err(|e| e.to_string())?;
+
+    let cache = match RedisCache::new("redis://127.0.0.1:6379/", 3600).await {
+        Ok(cache) => Some(cache),
+        Err(error) => {
+            tracing::warn!(%error, "Redis unavailable; cache disabled");
+            None
+        }
+    };
 
     let service = FileVaultService {
         pool,
         jwt_secret,
         max_upload_bytes: 100 * 1024 * 1024,
-        transaction: Transaction::new(kafka).map_err(|e| e.to_string())?,
+        transaction: Transaction::new(kafka_producer).map_err(|e| e.to_string())?,
+        cache: cache.clone(),
     };
 
     let cert = tokio::fs::read(concat!(
@@ -59,11 +70,12 @@ pub async fn run(
 
     // Spawner le consumer Kafka
     tokio::spawn({
-        let consumer = KafkaConsumer::new(
+        let mut consumer = KafkaConsumer::new(
             "localhost:9094",
             "filevault-group",
             "file-events",
             runtime_mode,
+            cache,
         )
         .map_err(|e| e.to_string())?;
 

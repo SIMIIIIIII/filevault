@@ -1,4 +1,5 @@
 pub mod api;
+pub mod cache;
 pub mod cli_helpers;
 pub mod customer;
 pub mod db;

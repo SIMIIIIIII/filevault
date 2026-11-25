@@ -1,7 +1,7 @@
 use tokio::{
     fs,
     io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader},
-    time::{sleep, Duration},
+    time::{Duration, sleep},
 };
 
 use std::path::{Path, PathBuf};

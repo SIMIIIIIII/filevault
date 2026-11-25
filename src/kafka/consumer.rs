@@ -1,19 +1,21 @@
 use std::path::PathBuf;
 
 use crate::{
-    cli_helpers::{get_history_test, runtime_directories, RuntimeMode},
+    cache::redis_cache::RedisCache,
+    cli_helpers::{RuntimeMode, get_history_test, runtime_directories},
     kafka::{handlers::handlers, producer::FileEvent},
 };
 use rdkafka::{
+    Message,
     config::ClientConfig,
     consumer::{CommitMode, Consumer, StreamConsumer},
-    Message,
 };
 
 pub struct KafkaConsumer {
     consumer: StreamConsumer,
     topic: String,
     pub history_path: PathBuf,
+    pub cache: Option<RedisCache>,
 }
 
 impl KafkaConsumer {
@@ -22,6 +24,7 @@ impl KafkaConsumer {
         group_id: &str,
         topic: &str,
         runtime_mode: RuntimeMode,
+        cache: Option<RedisCache>,
     ) -> anyhow::Result<Self> {
         let consumer: StreamConsumer = ClientConfig::new()
             .set("bootstrap.servers", brokers)
@@ -41,10 +44,11 @@ impl KafkaConsumer {
                 let (log_root, _) = runtime_directories(RuntimeMode::Test);
                 PathBuf::from(get_history_test(log_root))
             },
+            cache,
         })
     }
 
-    pub async fn start(&self) -> anyhow::Result<()> {
+    pub async fn start(&mut self) -> anyhow::Result<()> {
         loop {
             let strm = self.consumer.recv().await;
 
@@ -69,9 +73,13 @@ impl KafkaConsumer {
             tracing::info!(topic = %self.topic, event = ?event, "Kafka event received");
 
             for _ in 0..5 {
-                if handlers(self.history_path.clone(), event.clone())
-                    .await
-                    .is_err()
+                if handlers(
+                    self.history_path.clone(),
+                    event.clone(),
+                    self.cache.as_mut(),
+                )
+                .await
+                .is_err()
                 {
                     continue;
                 }

@@ -16,6 +16,7 @@ use filevault::file_vault_server::FileVault;
 use filevault::*;
 
 use crate::api::auth::generate_token;
+use crate::cache::redis_cache::RedisCache;
 use crate::db::{
     check_user, delete_file, get_all_files, get_file, insert_file, new_user, update_nb_download,
 };
@@ -28,12 +29,17 @@ pub struct FileVaultService {
     pub jwt_secret: String,
     pub max_upload_bytes: u64,
     pub transaction: Transaction,
+    pub cache: Option<RedisCache>,
     //pub kafka: KafkaProducer,
 }
 
 pub struct MyFile {
     pub file: fs::File,
     pub file_path: String,
+}
+
+fn cache_matches_request(file: &crate::db::File, file_id: i64, user_id: i64) -> bool {
+    i64::from(file.id) == file_id && file.user_id.map(i64::from) == Some(user_id)
 }
 
 #[tonic::async_trait]
@@ -211,7 +217,7 @@ impl FileVault for FileVaultService {
 
         tokio::spawn({
             let event = FileEvent::Uploaded {
-                file_id: res.id,
+                file_info: res.clone(),
                 user_id,
                 uploaded_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
             };
@@ -223,7 +229,13 @@ impl FileVault for FileVaultService {
             }
         });
 
-        Ok(Response::new(res))
+        Ok(Response::new(UploadResponse {
+            id: res.id as i64,
+            sha256: res.sha256,
+            status: 2,
+            message: "File uploaded!!!".to_string(),
+            name: res.name,
+        }))
     }
 
     async fn login(
@@ -294,13 +306,35 @@ impl FileVault for FileVaultService {
 
         let file_id = req.file_id;
 
-        let file_info = get_file(self.pool.clone(), user_id as i32, file_id as i32)
-            .await
-            .map_err(|error| Status::internal(error.to_string()))?;
+        let cached_file = if let Some(cache) = &self.cache {
+            match cache.get(file_id).await {
+                Ok(file) => file.filter(|file| cache_matches_request(file, file_id, user_id)),
+                Err(error) => {
+                    tracing::warn!(%error, file_id, "Redis lookup failed; falling back to PostgreSQL");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        let mut file_info = match cached_file {
+            Some(file) => file,
+            None => get_file(self.pool.clone(), user_id as i32, file_id as i32)
+                .await
+                .map_err(|error| Status::internal(error.to_string()))?,
+        };
 
-        update_nb_download(self.pool.clone(), user_id as i32, file_id as i32)
-            .await
-            .map_err(|error| Status::internal(error.to_string()))?;
+        file_info.nb_downloads =
+            update_nb_download(self.pool.clone(), user_id as i32, file_id as i32)
+                .await
+                .map_err(|error| Status::internal(error.to_string()))?;
+
+        let event = FileEvent::Downloaded {
+            user_id,
+            file_id,
+            file_info: Some(file_info.clone()),
+            downloaded_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        };
 
         let stream = async_stream::try_stream! {
             let mut file = tokio::fs::File::open(
@@ -328,11 +362,6 @@ impl FileVault for FileVaultService {
         };
 
         tokio::spawn({
-            let event = FileEvent::Deleted {
-                user_id,
-                file_id,
-                deleted_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-            };
             let transaction = self.transaction.clone();
             async move {
                 if let Err(e) = transaction.push(event).await {
@@ -342,5 +371,31 @@ impl FileVault for FileVaultService {
         });
 
         Ok(Response::new(Box::pin(stream)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cached_file_must_match_requested_file_and_user() {
+        let mut file = crate::db::File {
+            id: 12,
+            name: "test".into(),
+            size: 0,
+            created_at: chrono::Utc::now(),
+            user_id: Some(34),
+            file_path: "test".into(),
+            sha256: String::new(),
+            nb_downloads: 0,
+        };
+
+        assert!(cache_matches_request(&file, 12, 34));
+        assert!(!cache_matches_request(&file, 13, 34));
+        assert!(!cache_matches_request(&file, 12, 35));
+        assert!(!cache_matches_request(&file, 12, 34 + (1_i64 << 32)));
+        file.user_id = None;
+        assert!(!cache_matches_request(&file, 12, 34));
     }
 }

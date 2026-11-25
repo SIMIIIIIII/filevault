@@ -5,7 +5,7 @@ use axum::{
 };
 use axum_server::accept::Accept;
 use axum_server::tls_rustls::{RustlsAcceptor, RustlsConfig};
-use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig};
 use std::future::Future;

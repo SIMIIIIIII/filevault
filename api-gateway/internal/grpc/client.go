@@ -51,6 +51,11 @@ func (c *ClientFileVault) GetToken() (string, error) {
 	return c.token, nil
 }
 
+func (c *ClientFileVault) InvalidateToken() error {
+	c.token = ""
+	return nil
+}
+
 // Appel unary : lister les fichiers
 func (c *ClientFileVault) Lister(ctx context.Context, userID int64) ([]*pb.File, error) {
 	resp, err := c.client.List(ctx, &pb.ListRequest{

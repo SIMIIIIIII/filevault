@@ -7,20 +7,21 @@ use rdkafka::{
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-use crate::kafka::handlers::Transaction;
+use crate::{db::File, kafka::handlers::Transaction};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum FileEvent {
     Uploaded {
-        user_id: i64,
-        file_id: i64,
+        file_info: File,
         uploaded_at: String,
+        user_id: i64,
     },
 
     Downloaded {
         user_id: i64,
         file_id: i64,
+        file_info: Option<File>,
         downloaded_at: String,
     },
 
