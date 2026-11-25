@@ -16,20 +16,30 @@ use filevault::file_vault_server::FileVault;
 use filevault::*;
 
 use crate::api::auth::generate_token;
+use crate::cache::redis_cache::RedisCache;
 use crate::db::{
     check_user, delete_file, get_all_files, get_file, insert_file, new_user, update_nb_download,
 };
 use crate::grpc::auth::authenticate_request;
+use crate::kafka::handlers::Transaction;
+use crate::kafka::producer::FileEvent;
 
 pub struct FileVaultService {
     pub pool: sqlx::PgPool,
     pub jwt_secret: String,
     pub max_upload_bytes: u64,
+    pub transaction: Transaction,
+    pub cache: Option<RedisCache>,
+    //pub kafka: KafkaProducer,
 }
 
 pub struct MyFile {
     pub file: fs::File,
     pub file_path: String,
+}
+
+fn cache_matches_request(file: &crate::db::File, file_id: i64, user_id: i64) -> bool {
+    i64::from(file.id) == file_id && file.user_id.map(i64::from) == Some(user_id)
 }
 
 #[tonic::async_trait]
@@ -86,6 +96,20 @@ impl FileVault for FileVaultService {
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
+        tokio::spawn({
+            let event = FileEvent::Deleted {
+                user_id,
+                file_id: file_id as i64,
+                deleted_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            };
+            let transaction = self.transaction.clone();
+            async move {
+                if let Err(e) = transaction.push(event).await {
+                    tracing::error!(err = %e, "Kafka publish error");
+                }
+            }
+        });
+
         Ok(Response::new(DeleteResponse { succes: true }))
     }
 
@@ -101,7 +125,11 @@ impl FileVault for FileVaultService {
         let mut hasher = sha2::Sha256::new();
 
         let mut my_file = MyFile {
-            file: fs::File::create_new("test")
+            file: fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open("test")
                 .await
                 .map_err(|e| Status::internal(e.to_string()))?,
             file_path: "test".to_string(),
@@ -121,8 +149,13 @@ impl FileVault for FileVaultService {
 
                     let file_path = Path::new("server_files").join(&safe_name);
 
-                    let _ = fs::remove_file(my_file.file_path).await;
-                    let file_disc = fs::File::create(&file_path)
+                    let _ = fs::remove_file(&my_file.file_path).await;
+                    // Allow overwriting by using File::create with truncate
+                    let file_disc = fs::OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(&file_path)
                         .await
                         .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -182,7 +215,27 @@ impl FileVault for FileVaultService {
 
         tracing::info!(octets = total_bytes, sha256 = sha256, "Upload done");
 
-        Ok(Response::new(res))
+        tokio::spawn({
+            let event = FileEvent::Uploaded {
+                file_info: res.clone(),
+                user_id,
+                uploaded_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            };
+            let transaction = self.transaction.clone();
+            async move {
+                if let Err(e) = transaction.push(event).await {
+                    tracing::error!(err = %e, "Kafka publish error");
+                }
+            }
+        });
+
+        Ok(Response::new(UploadResponse {
+            id: res.id as i64,
+            sha256: res.sha256,
+            status: 2,
+            message: "File uploaded!!!".to_string(),
+            name: res.name,
+        }))
     }
 
     async fn login(
@@ -198,6 +251,19 @@ impl FileVault for FileVaultService {
 
         let token = generate_token(user.id as i64, &self.jwt_secret.to_string())
             .map_err(|error| Status::internal(error.to_string()))?;
+
+        tokio::spawn({
+            let event = FileEvent::Logged {
+                user_id: user.id as i64,
+                logged_in_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            };
+            let transaction = self.transaction.clone();
+            async move {
+                if let Err(e) = transaction.push(event).await {
+                    tracing::error!(err = %e, "Kafka publish error");
+                }
+            }
+        });
 
         Ok(Response::new(LoginResponse { token }))
     }
@@ -240,13 +306,35 @@ impl FileVault for FileVaultService {
 
         let file_id = req.file_id;
 
-        let file_info = get_file(self.pool.clone(), user_id as i32, file_id as i32)
-            .await
-            .map_err(|error| Status::internal(error.to_string()))?;
+        let cached_file = if let Some(cache) = &self.cache {
+            match cache.get(file_id).await {
+                Ok(file) => file.filter(|file| cache_matches_request(file, file_id, user_id)),
+                Err(error) => {
+                    tracing::warn!(%error, file_id, "Redis lookup failed; falling back to PostgreSQL");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        let mut file_info = match cached_file {
+            Some(file) => file,
+            None => get_file(self.pool.clone(), user_id as i32, file_id as i32)
+                .await
+                .map_err(|error| Status::internal(error.to_string()))?,
+        };
 
-        update_nb_download(self.pool.clone(), user_id as i32, file_id as i32)
-            .await
-            .map_err(|error| Status::internal(error.to_string()))?;
+        file_info.nb_downloads =
+            update_nb_download(self.pool.clone(), user_id as i32, file_id as i32)
+                .await
+                .map_err(|error| Status::internal(error.to_string()))?;
+
+        let event = FileEvent::Downloaded {
+            user_id,
+            file_id,
+            file_info: Some(file_info.clone()),
+            downloaded_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        };
 
         let stream = async_stream::try_stream! {
             let mut file = tokio::fs::File::open(
@@ -273,6 +361,41 @@ impl FileVault for FileVaultService {
 
         };
 
+        tokio::spawn({
+            let transaction = self.transaction.clone();
+            async move {
+                if let Err(e) = transaction.push(event).await {
+                    tracing::error!(err = %e, "Kafka publish error");
+                }
+            }
+        });
+
         Ok(Response::new(Box::pin(stream)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cached_file_must_match_requested_file_and_user() {
+        let mut file = crate::db::File {
+            id: 12,
+            name: "test".into(),
+            size: 0,
+            created_at: chrono::Utc::now(),
+            user_id: Some(34),
+            file_path: "test".into(),
+            sha256: String::new(),
+            nb_downloads: 0,
+        };
+
+        assert!(cache_matches_request(&file, 12, 34));
+        assert!(!cache_matches_request(&file, 13, 34));
+        assert!(!cache_matches_request(&file, 12, 35));
+        assert!(!cache_matches_request(&file, 12, 34 + (1_i64 << 32)));
+        file.user_id = None;
+        assert!(!cache_matches_request(&file, 12, 34));
     }
 }

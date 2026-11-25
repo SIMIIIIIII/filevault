@@ -3,9 +3,9 @@ use std::{env, path::PathBuf, time::Duration};
 use file_vault::{
     api,
     cli_helpers::{
-        ensure_runtime_directories, get_history_test, map_error, parse_host_port,
-        parse_host_port_with_first, parse_runtime_mode, run_get_mode, run_legacy_mode,
-        runtime_directories, usage, RuntimeMode,
+        ExecutionMode, RuntimeMode, ensure_runtime_directories, get_history_test, map_error,
+        parse_host_port, parse_host_port_with_first, parse_runtime_mode, run_get_mode,
+        run_legacy_mode, runtime_directories, usage,
     },
     db,
     grpc::run,
@@ -24,8 +24,21 @@ async fn main() {
 
 async fn run() -> Result<(), String> {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    let (runtime_mode, args) = parse_runtime_mode(args);
+    let (runtime_mode, execution_mode, args) = parse_runtime_mode(args);
     ensure_runtime_directories(runtime_mode).await?;
+
+    // If --grpc flag is used, skip subcommand parsing and go directly to grpc mode
+    if execution_mode == ExecutionMode::Grpc {
+        let (host, port) = parse_host_port(args)?;
+        let pool = db::connexion_db(None).await.map_err(|e| {
+            map_error(file_vault::files_vault_errors::FileVaultError::DatabaseError(e.to_string()))
+        })?;
+
+        let jwt_secret =
+            env::var("JWT_SECRET").map_err(|_| "JWT_SECRET wasn't defined".to_string())?;
+
+        return run::run(pool, host, port, jwt_secret, runtime_mode).await;
+    }
 
     let mut args = args.into_iter();
     let first = args.next().ok_or_else(usage)?;
@@ -58,7 +71,7 @@ async fn run() -> Result<(), String> {
             let jwt_secret =
                 env::var("JWT_SECRET").map_err(|_| "JWT_SECRET wasn't defined".to_string())?;
 
-            run::run(pool, host, port, jwt_secret).await?;
+            run::run(pool, host, port, jwt_secret, runtime_mode).await?;
 
             Ok(())
         }

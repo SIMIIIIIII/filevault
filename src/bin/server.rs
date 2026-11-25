@@ -2,8 +2,8 @@ use std::{env, path::PathBuf, time::Duration};
 
 use file_vault::{
     cli_helpers::{
-        ensure_runtime_directories, get_history_test, map_error, parse_host_port,
-        parse_runtime_mode, runtime_directories, RuntimeMode,
+        RuntimeMode, ensure_runtime_directories, get_history_test, map_error, parse_host_port,
+        parse_runtime_mode, runtime_directories,
     },
     server::Server,
 };
@@ -20,7 +20,7 @@ async fn main() {
 
 async fn run() -> Result<(), String> {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    let (runtime_mode, args) = parse_runtime_mode(args);
+    let (runtime_mode, _execution_mode, args) = parse_runtime_mode(args);
 
     ensure_runtime_directories(runtime_mode).await?;
 

@@ -1,9 +1,9 @@
-use serde::Serialize;
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use serde::{Deserialize, Serialize};
+use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 
-use crate::{files_vault_errors::FileVaultError, grpc::server::filevault::UploadResponse};
+use crate::files_vault_errors::FileVaultError;
 
-#[derive(Debug, sqlx::FromRow, Serialize)]
+#[derive(Debug, sqlx::FromRow, Serialize, Deserialize, Clone)]
 pub struct File {
     pub id: i32,
     pub name: String,
@@ -82,24 +82,24 @@ pub async fn update_nb_download(
     pool: Pool<Postgres>,
     user_id: i32,
     file_id: i32,
-) -> Result<(), sqlx::Error> {
+) -> Result<i64, sqlx::Error> {
     let mut tx = pool.begin().await?;
 
-    sqlx::query!(
+    let nb_downloads = sqlx::query_scalar::<_, i64>(
         "UPDATE files
         SET nb_downloads = nb_downloads + 1
         WHERE id = $1
         AND user_id = $2
-        ",
-        file_id,
-        user_id
+        RETURNING nb_downloads",
     )
+    .bind(file_id)
+    .bind(user_id)
     .fetch_one(&mut *tx)
     .await?;
 
     tx.commit().await?;
 
-    Ok(())
+    Ok(nb_downloads)
 }
 
 pub async fn insert_file(
@@ -109,13 +109,13 @@ pub async fn insert_file(
     sha256: String,
     file_path: String,
     user_id: i32,
-) -> Result<UploadResponse, sqlx::Error> {
+) -> Result<File, sqlx::Error> {
     let mut tx = pool.begin().await?;
 
     let res = sqlx::query!(
         "INSERT INTO files (name, size, sha256, file_path, user_id)
         VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, sha256",
+        RETURNING id, sha256, name, size, created_at, file_path, nb_downloads",
         name,
         size as i64,
         sha256,
@@ -128,11 +128,15 @@ pub async fn insert_file(
     println!("[SERVER] File inserted with id={}", res.id);
     tx.commit().await?;
 
-    Ok(UploadResponse {
-        id: res.id as i64,
-        status: 2,
+    Ok(File {
+        id: res.id,
+        name: res.name,
+        size: res.size,
+        created_at: res.created_at,
+        user_id: Some(user_id),
+        file_path: res.file_path,
+        nb_downloads: res.nb_downloads,
         sha256: res.sha256,
-        message: "File uploaded".to_string(),
     })
 }
 

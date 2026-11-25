@@ -1,9 +1,11 @@
 pub mod api;
+pub mod cache;
 pub mod cli_helpers;
 pub mod customer;
 pub mod db;
 pub mod files;
 pub mod files_vault_errors;
 pub mod grpc;
+pub mod kafka;
 pub mod protocole;
 pub mod server;

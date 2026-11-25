@@ -39,7 +39,7 @@ message UploadMetadata {
     string sha256 = 4; // Optional
 }
 message UploadChunk {oneof payload { UploadMetadata metadata = 1; bytes data = 2;}}
-message UploadResponse { int64 id = 1; string sha256 = 2; Status status = 3; string message= 4;}
+message UploadResponse { int64 id = 1; string sha256 = 2; Status status = 3; string message= 4; string name = 5;}
 
 message DownloadRequest { int64 file_id = 1; int64 offset = 2; int64 length = 3;}
 

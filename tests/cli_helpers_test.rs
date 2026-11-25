@@ -2,12 +2,12 @@ use std::fs;
 use std::path::Path;
 
 use file_vault::cli_helpers::{
-    ensure_runtime_directories, parse_runtime_mode, runtime_directories, RuntimeMode,
+    RuntimeMode, ensure_runtime_directories, parse_runtime_mode, runtime_directories,
 };
 
 #[test]
 fn test_parse_runtime_mode() {
-    let (runtime_mode, args) = parse_runtime_mode(vec![
+    let (runtime_mode, _execution_mode, args) = parse_runtime_mode(vec![
         "--test".to_string(),
         "localhost".to_string(),
         "8080".to_string(),

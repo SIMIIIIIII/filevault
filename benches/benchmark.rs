@@ -7,7 +7,7 @@ use tokio::{
     fs,
     net::TcpListener,
     task::JoinHandle,
-    time::{sleep, Duration, Instant},
+    time::{Duration, Instant, sleep},
 };
 
 const HOST: &str = "::1";

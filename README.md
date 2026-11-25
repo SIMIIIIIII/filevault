@@ -5,6 +5,9 @@
     <img src="https://img.shields.io/badge/Rust-1.88%2B-orange?logo=rust" alt="Rust 1.88+" />
   </a>
   <a href="#">
+    <img src="https://img.shields.io/badge/Go-1.26%2B-00ADD8?logo=go" alt="Go 1.26+" />
+  </a>
+  <a href="#">
     <img src="https://img.shields.io/badge/Protocol-TCP-blue" alt="TCP protocol" />
   </a>
   <a href="#">
@@ -12,6 +15,9 @@
   </a>
   <a href="#">
     <img src="https://img.shields.io/badge/API-Axum%20%2B%20JWT-8b5cf6?logo=axum" alt="Axum + JWT" />
+  </a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/Gateway-gRPC-244c5a?logo=grpc" alt="gRPC gateway" />
   </a>
   <a href="#">
     <img src="https://img.shields.io/badge/Container-Docker-2496ED?logo=docker" alt="Docker" />
@@ -24,7 +30,7 @@
   </a>
 </p>
 
-FileVault is a Rust project for transferring files with a lightweight TCP protocol and a JWT-authenticated REST API. It stores file metadata in PostgreSQL, verifies payload integrity with SHA-256, and exposes both a server-side upload flow and a CLI client.
+FileVault is a Rust project for transferring files with a lightweight TCP protocol and a JWT-authenticated REST API. It stores file metadata in PostgreSQL, verifies payload integrity with SHA-256, and exposes both a server-side upload flow and a CLI client. The project includes a Go-based gRPC API Gateway for advanced service orchestration.
 
 ## Table of contents
 
@@ -33,20 +39,22 @@ FileVault is a Rust project for transferring files with a lightweight TCP protoc
 3. Project structure
 4. Requirements
 5. Quick start
-6. Environment configuration
-7. Database setup
-8. Running the TCP server
-9. Running the REST API
-10. Using the CLI
-11. Docker compose
-12. Testing
+6. Using the Makefile
+7. Environment configuration
+8. Database setup
+9. Running the TCP server
+10. Running the REST API
+11. Using the CLI
+12. Docker compose
+13. Testing
 
 ## Overview
 
-The project contains two main interaction layers:
+The project contains three main interaction layers:
 
 - a TCP server/client mode for direct file transfer
 - an Axum REST API for user authentication, file management, and statistics
+- a Go-based gRPC API Gateway for service orchestration and advanced client interactions
 
 The data model persists file metadata such as name, size, uploader, and timestamps in PostgreSQL. Each uploaded file is also saved on disk and validated through SHA-256 checks before being accepted.
 
@@ -56,6 +64,7 @@ The data model persists file metadata such as name, size, uploader, and timestam
 - SHA-256 integrity verification on received payloads
 - PostgreSQL-backed file metadata storage
 - JWT authentication for the HTTP API
+- gRPC API Gateway for service orchestration (Go)
 - CLI client for login, upload, download, list, and stats
 - Interactive legacy mode for direct client/server transfer testing
 - Dockerized local stack for database, API, server, and client
@@ -69,12 +78,21 @@ The data model persists file metadata such as name, size, uploader, and timestam
 ├── Makefile
 ├── README.md
 ├── build.rs
+├── api-gateway/
+│   ├── go.mod
+│   ├── go.sum
+│   ├── main.go
+│   ├── internal/
+│   ├── filevault/
+│   ├── filedrop/
+│   └── proto/
 ├── docker/
 │   ├── docker-compose.yml
 │   ├── docker-compose.test.yml
 │   ├── Dockerfile.api
 │   ├── Dockerfile.cli
 │   ├── Dockerfile.customer
+│   ├── Dockerfile.gateway
 │   ├── Dockerfile.grpc
 │   └── Dockerfile.server
 ├── migrations/
@@ -108,6 +126,8 @@ Main modules:
 - [src/db.rs](src/db.rs): PostgreSQL connection and database queries
 - [src/cli_helpers.rs](src/cli_helpers.rs): parsing utilities and runtime mode helpers
 - [filevault-cli/src/main.rs](filevault-cli/src/main.rs): command-line HTTP client for the API
+- [api-gateway/main.go](api-gateway/main.go): gRPC API Gateway entry point (Go service)
+- [api-gateway/internal/](api-gateway/internal/): Go gateway business logic
 - [migrations](migrations): SQL migration scripts
 - [tests](tests): project test suite
 
@@ -115,20 +135,29 @@ Main modules:
 
 - Rust 1.88 or newer
 - Cargo
+- Go 1.26 or newer (for the API Gateway)
 - Docker and Docker Compose
 - PostgreSQL 16 (provided by the Docker stack)
 - sqlx-cli for migrations and SQLx metadata refresh
+- golangci-lint (optional, for linting the Go API Gateway)
 
 Check the toolchain:
 
 ```bash
 cargo --version
+go version
 ```
 
 Install the SQLx CLI if you need to run migrations from the host machine:
 
 ```bash
 cargo install sqlx-cli --no-default-features --features postgres
+```
+
+Install golangci-lint for Go linting (optional):
+
+```bash
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
 ```
 
 ## Quick start
@@ -153,6 +182,71 @@ DATABASE_URL_TEST=postgresql://filevault:changeme@localhost:5433/filevaulttest
 JWT_SECRET=replace_with_a_secure_random_value
 JWT_SECRET_TEST=replace_with_another_secure_random_value
 ```
+
+## Using the Makefile
+
+The [Makefile](Makefile) provides convenient targets for common development and deployment tasks:
+
+### Build targets
+
+- `make build` — cargo build (debug)
+- `make build-release` — cargo build --release
+
+### Runtime targets
+
+- `make run-server` — run TCP server (defaults to HOST=:: PORT=8080)
+- `make run-api` — run REST API (defaults to HOST=:: PORT=8081)
+
+You can override the host and port:
+
+```bash
+make run-server HOST=localhost PORT=9000
+make run-api HOST=localhost PORT=9001
+```
+
+### Test targets
+
+- `make test` — run full test suite
+- `make test-api` — run tests/api_test.rs only
+- `make test-server` — run tests/server_test.rs only
+- `make coverage` — generate HTML coverage report to docs/coverage
+- `make bench` — run throughput benchmark
+
+### Database targets
+
+- `make db-up` — start db container and wait until healthy
+- `make db-down` — stop db container
+- `make db-wait` — ensure database is ready (called by targets that need it)
+- `make migrate` — run sqlx migrations
+- `make sqlx-prepare` — regenerate .sqlx offline query cache
+
+### Docker Compose targets
+
+- `make docker-build` — build all docker compose images
+- `make docker-up` — build and start the full docker compose stack
+- `make docker-down` — stop the docker compose stack
+- `make docker-logs` — tail logs of all docker compose services
+
+### Code quality targets
+
+- `make fmt` — cargo fmt
+- `make lint` — cargo clippy --all-targets
+- `make clean` — cargo clean
+
+### API Gateway (Go) targets
+
+The API Gateway is a Go service located in [api-gateway/](api-gateway). The following targets manage the Go build and development workflow:
+
+- `make gateway-build` — build api-gateway binary (cd api-gateway && go build)
+- `make gateway-run` — run api-gateway (cd api-gateway && go run .)
+- `make gateway-test` — run api-gateway tests (cd api-gateway && go test ./...)
+- `make gateway-fmt` — format api-gateway code (cd api-gateway && go fmt ./...)
+- `make gateway-lint` — lint api-gateway code (cd api-gateway && golangci-lint run)
+- `make gateway-mod-tidy` — tidy api-gateway go.mod (cd api-gateway && go mod tidy)
+
+### Help
+
+- `make help` — display all available targets
 
 ## Environment configuration
 
