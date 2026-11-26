@@ -25,6 +25,18 @@ pub struct Server {
     history_path: PathBuf,
 }
 
+fn safe_filename(raw: &str) -> Result<String, FileVaultError> {
+    let name = std::path::Path::new(raw)
+        .file_name()
+        // None pour "..", "a/.." ou ""
+        .and_then(|n| n.to_str())
+        .ok_or(FileVaultError::IncorrectDataType)?;
+    if name.contains('\0') {
+        return Err(FileVaultError::IncorrectDataType);
+    }
+    Ok(name.to_owned())
+}
+
 impl Server {
     pub fn from(host: String, port: u64) -> Self {
         Self {
@@ -78,14 +90,10 @@ impl Server {
         let mut reader = BufReader::new(stream);
         let packet = Packet::from_bytes(&mut reader).await?;
 
-        let mut file = open_file_write(
-            &storage_root
-                .join(packet.get_name().as_str())
-                .to_string_lossy(),
-            false,
-        )
-        .await
-        .map_err(|e| FileVaultError::FileOpeningError(e.to_string()))?;
+        let path = storage_root.join(safe_filename(&packet.get_name())?);
+        let mut file = open_file_write(&path.to_string_lossy(), false)
+            .await
+            .map_err(|e| FileVaultError::FileOpeningError(e.to_string()))?;
 
         Self::write_data(&mut reader, &mut file, packet.data_size()).await?;
         let _ = Self::update_history(packet.get_name(), packet.data_size(), history_path).await;
