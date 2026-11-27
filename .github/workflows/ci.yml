@@ -122,10 +122,6 @@ jobs:
         needs: [lint, test]
         runs-on: ubuntu-latest
         timeout-minutes: 30
-        build-args: |
-          BUILD_DATE=${{ github.event.head_commit.timestamp }}
-          VCS_REF=${{ github.sha }}
-          APT_REFRESH=${{ github.run_id }}
         if: github.actor != 'dependabot[bot]'
         outputs:
             image-digest: ${{ steps.build.outputs.digest }}
@@ -179,8 +175,9 @@ jobs:
                 cache-from: type=gha # read from GitHub cache
                 cache-to: type=gha,mode=max # write in the cache GitHub
                 build-args: |
-                    BUILD_DATE=${{ github.event.head_commit.timestamp }}
-                    VCS_REF=${{ github.sha }}
+                  BUILD_DATE=${{ github.event.head_commit.timestamp }}
+                  VCS_REF=${{ github.sha }}
+                  APT_REFRESH=${{ github.run_id }}
 
             - name: Image digest
               run: echo '${{ steps.build.outputs.digest }}'
