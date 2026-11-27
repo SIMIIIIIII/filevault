@@ -2,7 +2,6 @@ FROM rust:bookworm AS builder
 WORKDIR /app
 ENV SQLX_OFFLINE=true
 ENV PROTOC=/usr/bin/protoc
-ARG APT_REFRESH=0
 RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-compiler \
     cmake \
@@ -20,6 +19,7 @@ COPY benches ./benches
 COPY filevault-cli ./filevault-cli
 RUN cargo build --release
 FROM debian:bookworm-slim
+ARG APT_REFRESH=0
 RUN apt-get update && apt-get upgrade -y --no-install-recommends && \
 	apt-get install -y --no-install-recommends netcat-openbsd ca-certificates && \
 	rm -rf /var/lib/apt/lists/*
