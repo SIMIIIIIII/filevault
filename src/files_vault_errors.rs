@@ -11,6 +11,7 @@ pub enum FileVaultError {
     FileWritingError(String),
     PacketCorrupted,
     DatabaseError(String),
+    Timeout(String),
 }
 
 impl fmt::Display for FileVaultError {
@@ -25,6 +26,7 @@ impl fmt::Display for FileVaultError {
             Self::TcpSendingError(e) => write!(f, "TcpStream sending error: {e}"),
             Self::PacketCorrupted => write!(f, "The packet is corrupted"),
             Self::DatabaseError(e) => write!(f, "Database error: {e}"),
+            Self::Timeout(e) => write!(f, "Timout after : {e}s"),
         }
     }
 }

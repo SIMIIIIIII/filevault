@@ -175,8 +175,9 @@ jobs:
                 cache-from: type=gha # read from GitHub cache
                 cache-to: type=gha,mode=max # write in the cache GitHub
                 build-args: |
-                    BUILD_DATE=${{ github.event.head_commit.timestamp }}
-                    VCS_REF=${{ github.sha }}
+                  BUILD_DATE=${{ github.event.head_commit.timestamp }}
+                  VCS_REF=${{ github.sha }}
+                  APT_REFRESH=${{ github.run_id }}
 
             - name: Image digest
               run: echo '${{ steps.build.outputs.digest }}'

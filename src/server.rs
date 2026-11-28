@@ -2,11 +2,11 @@ use tokio::{
     fs,
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
     net::{TcpListener, TcpStream},
-    sync::Mutex,
-    time::{Duration, Instant, sleep_until},
+    sync::{Mutex, Semaphore},
+    time::{Duration, Instant, sleep_until, timeout},
 };
 
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use crate::{
     files::{add_line_in_file, open_file_append, open_file_write},
@@ -23,12 +23,12 @@ pub struct Server {
     port: u64,
     storage_root: PathBuf,
     history_path: PathBuf,
+    permits: Arc<Semaphore>,
 }
 
 fn safe_filename(raw: &str) -> Result<String, FileVaultError> {
     let name = std::path::Path::new(raw)
         .file_name()
-        // None pour "..", "a/.." ou ""
         .and_then(|n| n.to_str())
         .ok_or(FileVaultError::IncorrectDataType)?;
     if name.contains('\0') {
@@ -45,6 +45,7 @@ impl Server {
             port,
             storage_root: PathBuf::from("server_files"),
             history_path: PathBuf::from("log_files/history.log"),
+            permits: Arc::new(Semaphore::new(64)),
         }
     }
 
@@ -55,6 +56,7 @@ impl Server {
             port,
             storage_root: PathBuf::from("server_files"),
             history_path,
+            permits: Arc::new(Semaphore::new(64)),
         }
     }
 
@@ -70,6 +72,7 @@ impl Server {
             port,
             storage_root,
             history_path,
+            permits: Arc::new(Semaphore::new(64)),
         }
     }
 
@@ -87,15 +90,18 @@ impl Server {
         storage_root: PathBuf,
         history_path: PathBuf,
     ) -> Result<(), FileVaultError> {
+        const HEADER_TIMEOUT: Duration = Duration::from_secs(10);
         let mut reader = BufReader::new(stream);
-        let packet = Packet::from_bytes(&mut reader).await?;
+        let packet = timeout(HEADER_TIMEOUT, Packet::from_bytes(&mut reader))
+            .await
+            .map_err(|_| FileVaultError::Timeout(HEADER_TIMEOUT.as_secs().to_string()))??;
 
         let path = storage_root.join(safe_filename(&packet.get_name())?);
         let mut file = open_file_write(&path.to_string_lossy(), false)
             .await
             .map_err(|e| FileVaultError::FileOpeningError(e.to_string()))?;
 
-        Self::write_data(&mut reader, &mut file, packet.data_size()).await?;
+        Self::write_data(&mut reader, &mut file, path, packet.data_size()).await?;
         let _ = Self::update_history(packet.get_name(), packet.data_size(), history_path).await;
 
         Ok(())
@@ -129,17 +135,19 @@ impl Server {
     async fn write_data(
         reader: &mut BufReader<TcpStream>,
         file: &mut fs::File,
+        path: PathBuf,
         data_size: u64,
     ) -> Result<(), FileVaultError> {
         let mut chunk = [0u8; 1024];
         let mut hasher = Sha256::new();
         let mut remaining = data_size;
+        const IO_TIMEOUT: Duration = Duration::from_secs(30);
 
         while remaining > 0 {
             let to_read = usize::min(remaining as usize, chunk.len());
-            let read_bytes = reader
-                .read(&mut chunk[..to_read])
+            let read_bytes = timeout(IO_TIMEOUT, reader.read(&mut chunk[..to_read]))
                 .await
+                .map_err(|_| FileVaultError::Timeout(IO_TIMEOUT.as_secs().to_string()))?
                 .map_err(|_| FileVaultError::MissingPayload)?;
 
             if read_bytes == 0 {
@@ -164,6 +172,9 @@ impl Server {
             .map_err(|_| FileVaultError::MissingPayload)?;
 
         if received_hash != computed_hash {
+            fs::remove_file(path)
+                .await
+                .map_err(|_| FileVaultError::HashMismatch)?;
             return Err(FileVaultError::HashMismatch);
         }
 
@@ -193,6 +204,7 @@ impl Server {
         println!("[SERVER]: Listening on port {}", self.port);
 
         loop {
+            let permit = self.permits.clone().acquire_owned().await.unwrap();
             tokio::select! {
                 accept_result = listener.accept() => {
                     match accept_result {
@@ -203,7 +215,11 @@ impl Server {
                             let history_path = self.history_path.clone();
 
                             tokio::spawn(async move {
-                                let _ = Self::manage_customer(stream, storage_root, history_path).await;
+                                let _permit = permit;
+                                let _ = tokio::time::timeout(
+                                    Duration::from_secs(300),
+                                    Self::manage_customer(stream, storage_root, history_path)
+                                ).await;
                             });
                         }
                         Err(e) => {
